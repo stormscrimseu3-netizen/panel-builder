@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Nebula Panel installer.
-# Usage: curl -sSL https://raw.githubusercontent.com/YOUR_USER/YOUR_REPO/main/install.sh | sudo bash
+# Usage: curl -sSL https://raw.githubusercontent.com/stormscrimseu3-netizen/panel-builder/main/install.sh | sudo bash
 set -euo pipefail
 
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
@@ -10,8 +10,8 @@ die() { echo -e "${RED}[nebula]${NC} $*"; exit 1; }
 
 [[ $EUID -eq 0 ]] || die "Run with sudo."
 
-REPO_RAW="https://raw.githubusercontent.com/YOUR_USER/YOUR_REPO/main"
-REPO_GIT="https://github.com/YOUR_USER/YOUR_REPO.git"
+REPO_RAW="https://raw.githubusercontent.com/stormscrimseu3-netizen/panel-builder/main"
+REPO_GIT="https://github.com/stormscrimseu3-netizen/panel-builder.git"
 
 # --- choose role ---
 echo

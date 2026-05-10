@@ -18,7 +18,7 @@ to register a Linux server.
 ### 2. Install the daemon on your server
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/YOUR_USER/YOUR_REPO/main/install.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/stormscrimseu3-netizen/panel-builder/main/install.sh | sudo bash
 ```
 
 Pick **Node daemon**, then paste the `nebula-wings configure ...` command shown

@@ -133,7 +133,7 @@ function NodesPage() {
       <div className="mt-8 rounded-2xl border border-border/60 p-5 text-sm text-muted-foreground">
         Don't have the daemon installed yet? Run this once on your VPS:
         <pre className="mono mt-2 overflow-x-auto rounded-md bg-background/60 p-3 text-xs">
-{`curl -sSL https://raw.githubusercontent.com/YOUR_USER/YOUR_REPO/main/install.sh | sudo bash`}
+{`curl -sSL https://raw.githubusercontent.com/stormscrimseu3-netizen/panel-builder/main/install.sh | sudo bash`}
         </pre>
       </div>
     </div>
