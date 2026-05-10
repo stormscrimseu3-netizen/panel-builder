@@ -1,5 +1,5 @@
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Server, LogOut, BookOpen, HardDrive } from "lucide-react";
+import { LayoutDashboard, Server, LogOut, BookOpen, HardDrive, Settings } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
@@ -11,6 +11,7 @@ const navItems = [
   { to: "/servers", label: "Servers", icon: Server },
   { to: "/nodes", label: "Nodes", icon: HardDrive },
   { to: "/docs", label: "Docs", icon: BookOpen },
+  { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
 export function PanelShell() {

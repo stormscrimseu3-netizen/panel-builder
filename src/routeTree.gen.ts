@@ -13,6 +13,7 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedNodesRouteImport } from './routes/_authenticated/nodes'
 import { Route as AuthenticatedDocsRouteImport } from './routes/_authenticated/docs'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -39,6 +40,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedNodesRoute = AuthenticatedNodesRouteImport.update({
   id: '/nodes',
@@ -85,6 +91,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/docs': typeof AuthenticatedDocsRoute
   '/nodes': typeof AuthenticatedNodesRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/servers/$serverId': typeof AuthenticatedServersServerIdRoute
   '/servers/new': typeof AuthenticatedServersNewRoute
   '/servers/': typeof AuthenticatedServersIndexRoute
@@ -97,6 +104,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/docs': typeof AuthenticatedDocsRoute
   '/nodes': typeof AuthenticatedNodesRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/servers/$serverId': typeof AuthenticatedServersServerIdRoute
   '/servers/new': typeof AuthenticatedServersNewRoute
   '/servers': typeof AuthenticatedServersIndexRoute
@@ -111,6 +119,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/docs': typeof AuthenticatedDocsRoute
   '/_authenticated/nodes': typeof AuthenticatedNodesRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/servers/$serverId': typeof AuthenticatedServersServerIdRoute
   '/_authenticated/servers/new': typeof AuthenticatedServersNewRoute
   '/_authenticated/servers/': typeof AuthenticatedServersIndexRoute
@@ -125,6 +134,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/docs'
     | '/nodes'
+    | '/settings'
     | '/servers/$serverId'
     | '/servers/new'
     | '/servers/'
@@ -137,6 +147,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/docs'
     | '/nodes'
+    | '/settings'
     | '/servers/$serverId'
     | '/servers/new'
     | '/servers'
@@ -150,6 +161,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/docs'
     | '/_authenticated/nodes'
+    | '/_authenticated/settings'
     | '/_authenticated/servers/$serverId'
     | '/_authenticated/servers/new'
     | '/_authenticated/servers/'
@@ -193,6 +205,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/nodes': {
       id: '/_authenticated/nodes'
@@ -250,6 +269,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDocsRoute: typeof AuthenticatedDocsRoute
   AuthenticatedNodesRoute: typeof AuthenticatedNodesRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedServersServerIdRoute: typeof AuthenticatedServersServerIdRoute
   AuthenticatedServersNewRoute: typeof AuthenticatedServersNewRoute
   AuthenticatedServersIndexRoute: typeof AuthenticatedServersIndexRoute
@@ -259,6 +279,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDocsRoute: AuthenticatedDocsRoute,
   AuthenticatedNodesRoute: AuthenticatedNodesRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedServersServerIdRoute: AuthenticatedServersServerIdRoute,
   AuthenticatedServersNewRoute: AuthenticatedServersNewRoute,
   AuthenticatedServersIndexRoute: AuthenticatedServersIndexRoute,
