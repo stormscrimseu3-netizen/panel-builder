@@ -1,0 +1,23 @@
+{
+  "name": "nebula-wings",
+  "version": "0.1.0",
+  "description": "Nebula Panel daemon — runs Discord bots and other workloads inside Docker containers, controlled by the panel over WebSocket.",
+  "main": "src/index.js",
+  "type": "module",
+  "bin": {
+    "nebula-wings": "src/cli.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "dockerode": "^4.0.2",
+    "express": "^4.19.2",
+    "ws": "^8.16.0"
+  },
+  "license": "MIT"
+}
