@@ -15,7 +15,7 @@ function DocsPage() {
           <h2 className="font-semibold">1. Install the panel daemon</h2>
           <p className="mt-1 text-sm text-muted-foreground">Run on Debian, Ubuntu, Docker, or Codespaces:</p>
           <pre className="mono mt-3 overflow-x-auto rounded-md bg-background/60 p-3 text-sm">
-{`curl -sSL https://raw.githubusercontent.com/YOUR_USER/YOUR_REPO/main/install.sh | sudo bash`}
+{`curl -sSL https://raw.githubusercontent.com/stormscrimseu3-netizen/panel-builder/main/install.sh | sudo bash`}
           </pre>
           <p className="mt-2 text-xs text-muted-foreground">Choose <strong>Node daemon</strong>. The installer sets up Docker, Node.js 20, and a systemd service. Then go to <strong>Nodes</strong> in the sidebar to register this server and copy the configure command.</p>
         </section>
