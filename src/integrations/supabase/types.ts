@@ -49,6 +49,45 @@ export type Database = {
           },
         ]
       }
+      nodes: {
+        Row: {
+          created_at: string
+          fqdn: string
+          id: string
+          last_seen_at: string | null
+          name: string
+          online: boolean
+          port: number
+          token: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          fqdn: string
+          id?: string
+          last_seen_at?: string | null
+          name: string
+          online?: boolean
+          port?: number
+          token?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          fqdn?: string
+          id?: string
+          last_seen_at?: string | null
+          name?: string
+          online?: boolean
+          port?: number
+          token?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -124,6 +163,7 @@ export type Database = {
           memory_mb: number
           name: string
           node_id: string | null
+          node_uuid: string | null
           runtime: Database["public"]["Enums"]["server_runtime"]
           start_command: string
           status: Database["public"]["Enums"]["server_status"]
@@ -139,6 +179,7 @@ export type Database = {
           memory_mb?: number
           name: string
           node_id?: string | null
+          node_uuid?: string | null
           runtime?: Database["public"]["Enums"]["server_runtime"]
           start_command?: string
           status?: Database["public"]["Enums"]["server_status"]
@@ -154,13 +195,22 @@ export type Database = {
           memory_mb?: number
           name?: string
           node_id?: string | null
+          node_uuid?: string | null
           runtime?: Database["public"]["Enums"]["server_runtime"]
           start_command?: string
           status?: Database["public"]["Enums"]["server_status"]
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "servers_node_uuid_fkey"
+            columns: ["node_uuid"]
+            isOneToOne: false
+            referencedRelation: "nodes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
