@@ -13,11 +13,13 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedNodesRouteImport } from './routes/_authenticated/nodes'
 import { Route as AuthenticatedDocsRouteImport } from './routes/_authenticated/docs'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedServersIndexRouteImport } from './routes/_authenticated/servers/index'
 import { Route as AuthenticatedServersNewRouteImport } from './routes/_authenticated/servers/new'
 import { Route as AuthenticatedServersServerIdRouteImport } from './routes/_authenticated/servers/$serverId'
+import { Route as ApiPublicNodesHeartbeatRouteImport } from './routes/api/public/nodes.heartbeat'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -37,6 +39,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedNodesRoute = AuthenticatedNodesRouteImport.update({
+  id: '/nodes',
+  path: '/nodes',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedDocsRoute = AuthenticatedDocsRouteImport.update({
   id: '/docs',
@@ -65,6 +72,11 @@ const AuthenticatedServersServerIdRoute =
     path: '/servers/$serverId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const ApiPublicNodesHeartbeatRoute = ApiPublicNodesHeartbeatRouteImport.update({
+  id: '/api/public/nodes/heartbeat',
+  path: '/api/public/nodes/heartbeat',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -72,9 +84,11 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/docs': typeof AuthenticatedDocsRoute
+  '/nodes': typeof AuthenticatedNodesRoute
   '/servers/$serverId': typeof AuthenticatedServersServerIdRoute
   '/servers/new': typeof AuthenticatedServersNewRoute
   '/servers/': typeof AuthenticatedServersIndexRoute
+  '/api/public/nodes/heartbeat': typeof ApiPublicNodesHeartbeatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -82,9 +96,11 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/docs': typeof AuthenticatedDocsRoute
+  '/nodes': typeof AuthenticatedNodesRoute
   '/servers/$serverId': typeof AuthenticatedServersServerIdRoute
   '/servers/new': typeof AuthenticatedServersNewRoute
   '/servers': typeof AuthenticatedServersIndexRoute
+  '/api/public/nodes/heartbeat': typeof ApiPublicNodesHeartbeatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -94,9 +110,11 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/docs': typeof AuthenticatedDocsRoute
+  '/_authenticated/nodes': typeof AuthenticatedNodesRoute
   '/_authenticated/servers/$serverId': typeof AuthenticatedServersServerIdRoute
   '/_authenticated/servers/new': typeof AuthenticatedServersNewRoute
   '/_authenticated/servers/': typeof AuthenticatedServersIndexRoute
+  '/api/public/nodes/heartbeat': typeof ApiPublicNodesHeartbeatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -106,9 +124,11 @@ export interface FileRouteTypes {
     | '/signup'
     | '/dashboard'
     | '/docs'
+    | '/nodes'
     | '/servers/$serverId'
     | '/servers/new'
     | '/servers/'
+    | '/api/public/nodes/heartbeat'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -116,9 +136,11 @@ export interface FileRouteTypes {
     | '/signup'
     | '/dashboard'
     | '/docs'
+    | '/nodes'
     | '/servers/$serverId'
     | '/servers/new'
     | '/servers'
+    | '/api/public/nodes/heartbeat'
   id:
     | '__root__'
     | '/'
@@ -127,9 +149,11 @@ export interface FileRouteTypes {
     | '/signup'
     | '/_authenticated/dashboard'
     | '/_authenticated/docs'
+    | '/_authenticated/nodes'
     | '/_authenticated/servers/$serverId'
     | '/_authenticated/servers/new'
     | '/_authenticated/servers/'
+    | '/api/public/nodes/heartbeat'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -137,6 +161,7 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
+  ApiPublicNodesHeartbeatRoute: typeof ApiPublicNodesHeartbeatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -168,6 +193,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/nodes': {
+      id: '/_authenticated/nodes'
+      path: '/nodes'
+      fullPath: '/nodes'
+      preLoaderRoute: typeof AuthenticatedNodesRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/docs': {
       id: '/_authenticated/docs'
@@ -204,12 +236,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedServersServerIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/api/public/nodes/heartbeat': {
+      id: '/api/public/nodes/heartbeat'
+      path: '/api/public/nodes/heartbeat'
+      fullPath: '/api/public/nodes/heartbeat'
+      preLoaderRoute: typeof ApiPublicNodesHeartbeatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDocsRoute: typeof AuthenticatedDocsRoute
+  AuthenticatedNodesRoute: typeof AuthenticatedNodesRoute
   AuthenticatedServersServerIdRoute: typeof AuthenticatedServersServerIdRoute
   AuthenticatedServersNewRoute: typeof AuthenticatedServersNewRoute
   AuthenticatedServersIndexRoute: typeof AuthenticatedServersIndexRoute
@@ -218,6 +258,7 @@ interface AuthenticatedRouteChildren {
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDocsRoute: AuthenticatedDocsRoute,
+  AuthenticatedNodesRoute: AuthenticatedNodesRoute,
   AuthenticatedServersServerIdRoute: AuthenticatedServersServerIdRoute,
   AuthenticatedServersNewRoute: AuthenticatedServersNewRoute,
   AuthenticatedServersIndexRoute: AuthenticatedServersIndexRoute,
@@ -232,7 +273,18 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
+  ApiPublicNodesHeartbeatRoute: ApiPublicNodesHeartbeatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
