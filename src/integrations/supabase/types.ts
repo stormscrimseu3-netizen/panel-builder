@@ -14,7 +14,154 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      console_logs: {
+        Row: {
+          created_at: string
+          id: string
+          level: string
+          message: string
+          server_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          level?: string
+          message: string
+          server_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          level?: string
+          message?: string
+          server_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "console_logs_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+          username: string | null
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          id: string
+          updated_at?: string
+          username?: string | null
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
+      server_files: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          path: string
+          server_id: string
+          size_bytes: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          id?: string
+          path: string
+          server_id: string
+          size_bytes?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          path?: string
+          server_id?: string
+          size_bytes?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "server_files_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "servers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      servers: {
+        Row: {
+          cpu_percent: number
+          created_at: string
+          description: string | null
+          disk_mb: number
+          id: string
+          memory_mb: number
+          name: string
+          node_id: string | null
+          runtime: Database["public"]["Enums"]["server_runtime"]
+          start_command: string
+          status: Database["public"]["Enums"]["server_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cpu_percent?: number
+          created_at?: string
+          description?: string | null
+          disk_mb?: number
+          id?: string
+          memory_mb?: number
+          name: string
+          node_id?: string | null
+          runtime?: Database["public"]["Enums"]["server_runtime"]
+          start_command?: string
+          status?: Database["public"]["Enums"]["server_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cpu_percent?: number
+          created_at?: string
+          description?: string | null
+          disk_mb?: number
+          id?: string
+          memory_mb?: number
+          name?: string
+          node_id?: string | null
+          runtime?: Database["public"]["Enums"]["server_runtime"]
+          start_command?: string
+          status?: Database["public"]["Enums"]["server_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +170,8 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      server_runtime: "nodejs" | "python" | "java" | "docker"
+      server_status: "offline" | "starting" | "online" | "stopping" | "crashed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +298,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      server_runtime: ["nodejs", "python", "java", "docker"],
+      server_status: ["offline", "starting", "online", "stopping", "crashed"],
+    },
   },
 } as const
