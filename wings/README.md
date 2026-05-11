@@ -13,7 +13,7 @@ and manage files.
 ## Install (one-liner)
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/stormscrimseu3-netizen/panel-builder/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/stormscrimseu3-netizen/panel-builder/main/install.sh | sudo bash
 ```
 
 The installer asks whether to set up the **panel** or a **node**. Choose `node`,
