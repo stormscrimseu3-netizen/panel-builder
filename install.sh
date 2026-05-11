@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Nebula Panel installer.
-# Usage: curl -sSL https://raw.githubusercontent.com/stormscrimseu3-netizen/panel-builder/main/install.sh | sudo bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/stormscrimseu3-netizen/panel-builder/main/install.sh | sudo bash
 #
 # Installs ONE of two roles on a Linux box (Debian/Ubuntu):
 #   1) Panel  — the web UI itself (nginx + TLS + Node service)
