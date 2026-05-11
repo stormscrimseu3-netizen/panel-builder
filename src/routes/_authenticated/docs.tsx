@@ -13,11 +13,11 @@ function DocsPage() {
       <div className="mt-8 space-y-6">
         <section className="card-elevated rounded-2xl p-6">
           <h2 className="font-semibold">1. Install the panel daemon</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Run on Debian, Ubuntu, Docker, or Codespaces:</p>
+          <p className="mt-1 text-sm text-muted-foreground">Run on a real Debian or Ubuntu VPS:</p>
           <pre className="mono mt-3 overflow-x-auto rounded-md bg-background/60 p-3 text-sm">
-{`curl -sSL https://raw.githubusercontent.com/stormscrimseu3-netizen/panel-builder/main/install.sh | sudo bash`}
+{`curl -fsSL https://raw.githubusercontent.com/stormscrimseu3-netizen/panel-builder/main/install.sh | sudo bash`}
           </pre>
-          <p className="mt-2 text-xs text-muted-foreground">Choose <strong>Node daemon</strong>. The installer sets up Docker, Node.js 20, and a systemd service. Then go to <strong>Nodes</strong> in the sidebar to register this server and copy the configure command.</p>
+          <p className="mt-2 text-xs text-muted-foreground">It prints <strong>RUN REAL NGINX</strong>, asks you to choose 1 for panel or 2 for wings, and shows the IPv4 address to use in DNS.</p>
         </section>
 
         <section className="card-elevated rounded-2xl p-6">
@@ -33,8 +33,8 @@ function DocsPage() {
         <section className="card-elevated rounded-2xl p-6">
           <h2 className="font-semibold">3. Create your first server</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            From <em>Servers → New server</em>, pick a runtime (Node, Python, Java, Docker), set memory and CPU limits, and define the start command.
-            The wings daemon will pull the matching Docker image and run it under your resource caps.
+            From <em>Servers → New server</em>, pick an egg, complete the required variables, set memory and CPU limits, then create the server.
+            Secret variables are hidden in the panel while still being passed to the startup environment.
           </p>
         </section>
 
