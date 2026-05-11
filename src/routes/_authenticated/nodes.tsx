@@ -40,17 +40,22 @@ function NodesPage() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const create = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreating(true);
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return;
     const { error } = await supabase.from("nodes").insert({ user_id: user.id, name, fqdn });
     setCreating(false);
     if (error) return toast.error(error.message);
-    setName(""); setFqdn("");
+    setName("");
+    setFqdn("");
     toast.success("Node created — copy the configure command below");
     load();
   };
@@ -62,7 +67,8 @@ function NodesPage() {
     load();
   };
 
-  const panelUrl = typeof window !== "undefined" ? window.location.origin : "https://your-panel.example.com";
+  const panelUrl =
+    typeof window !== "undefined" ? window.location.origin : "https://your-panel.example.com";
 
   return (
     <div className="mx-auto max-w-4xl p-6 md:p-10">
@@ -71,14 +77,29 @@ function NodesPage() {
         Linux servers running the Wings daemon. Each node hosts one or more bot containers.
       </p>
 
-      <form onSubmit={create} className="card-elevated mt-8 grid gap-3 rounded-2xl p-6 md:grid-cols-3">
+      <form
+        onSubmit={create}
+        className="card-elevated mt-8 grid gap-3 rounded-2xl p-6 md:grid-cols-3"
+      >
         <div>
           <Label htmlFor="name">Name</Label>
-          <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="my-vps" required />
+          <Input
+            id="name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="my-vps"
+            required
+          />
         </div>
         <div>
           <Label htmlFor="fqdn">Host (FQDN or IP)</Label>
-          <Input id="fqdn" value={fqdn} onChange={(e) => setFqdn(e.target.value)} placeholder="bots.example.com" required />
+          <Input
+            id="fqdn"
+            value={fqdn}
+            onChange={(e) => setFqdn(e.target.value)}
+            placeholder="bots.example.com"
+            required
+          />
         </div>
         <div className="flex items-end">
           <Button type="submit" disabled={creating} className="w-full">
@@ -99,11 +120,15 @@ function NodesPage() {
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    {n.online
-                      ? <CircleDot className="h-4 w-4 text-emerald-500" />
-                      : <Circle className="h-4 w-4 text-muted-foreground" />}
+                    {n.online ? (
+                      <CircleDot className="h-4 w-4 text-emerald-500" />
+                    ) : (
+                      <Circle className="h-4 w-4 text-muted-foreground" />
+                    )}
                     <h3 className="truncate font-semibold">{n.name}</h3>
-                    <span className="text-xs text-muted-foreground">{n.fqdn}:{n.port}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {n.fqdn}:{n.port}
+                    </span>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {n.online
@@ -118,12 +143,23 @@ function NodesPage() {
 
               <div className="mt-4">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-muted-foreground">Run on your Linux server</p>
-                  <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(cmd); toast.success("Copied"); }}>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Run on your Linux server
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      navigator.clipboard.writeText(cmd);
+                      toast.success("Copied");
+                    }}
+                  >
                     <Copy className="mr-1 h-3 w-3" /> Copy
                   </Button>
                 </div>
-                <pre className="mono mt-2 overflow-x-auto rounded-md bg-background/60 p-3 text-xs">{cmd}</pre>
+                <pre className="mono mt-2 overflow-x-auto rounded-md bg-background/60 p-3 text-xs">
+                  {cmd}
+                </pre>
               </div>
             </div>
           );
@@ -133,7 +169,7 @@ function NodesPage() {
       <div className="mt-8 rounded-2xl border border-border/60 p-5 text-sm text-muted-foreground">
         Don't have the daemon installed yet? Run this once on your VPS:
         <pre className="mono mt-2 overflow-x-auto rounded-md bg-background/60 p-3 text-xs">
-{`curl -sSL https://raw.githubusercontent.com/stormscrimseu3-netizen/panel-builder/main/install.sh | sudo bash`}
+          {`curl -fsSL https://raw.githubusercontent.com/stormscrimseu3-netizen/panel-builder/main/install.sh | sudo bash`}
         </pre>
       </div>
     </div>

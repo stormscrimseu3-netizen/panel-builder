@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Nebula Panel installer.
-# Usage: curl -sSL https://raw.githubusercontent.com/stormscrimseu3-netizen/panel-builder/main/install.sh | sudo bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/stormscrimseu3-netizen/panel-builder/main/install.sh | sudo bash
 #
 # Installs ONE of two roles on a Linux box (Debian/Ubuntu):
 #   1) Panel  — the web UI itself (nginx + TLS + Node service)
@@ -14,6 +14,14 @@ warn() { echo -e "${YELLOW}[nebula]${NC} $*"; }
 die()  { echo -e "${RED}[nebula]${NC} $*"; exit 1; }
 
 [[ $EUID -eq 0 ]] || die "Run with sudo."
+
+echo
+echo "============================================"
+echo "       RUN REAL NGINX"
+echo "       Nebula Panel installer"
+echo "============================================"
+echo "If nothing appears after this, run: curl -fsSL https://raw.githubusercontent.com/stormscrimseu3-netizen/panel-builder/main/install.sh -o install.sh && sudo bash install.sh"
+echo
 
 # CRITICAL: when invoked via `curl | bash`, stdin is the pipe — reads would EOF
 # and silently take defaults. Force every prompt to read from the real terminal.
@@ -39,10 +47,6 @@ fi
 
 REPO_GIT="https://github.com/stormscrimseu3-netizen/panel-builder.git"
 
-echo
-echo "============================================"
-echo "       Nebula Panel installer"
-echo "============================================"
 echo "  1) Install PANEL  (web UI on this server, nginx + TLS)"
 echo "  2) Install WINGS  (daemon — runs bots in Docker)"
 echo
