@@ -159,6 +159,12 @@ export type Database = {
           created_at: string
           description: string | null
           disk_mb: number
+          egg_id: string
+          egg_image: string
+          egg_name: string
+          egg_secret_variables: string[]
+          egg_startup: string
+          egg_variables: Json
           id: string
           memory_mb: number
           name: string
@@ -175,6 +181,12 @@ export type Database = {
           created_at?: string
           description?: string | null
           disk_mb?: number
+          egg_id?: string
+          egg_image?: string
+          egg_name?: string
+          egg_secret_variables?: string[]
+          egg_startup?: string
+          egg_variables?: Json
           id?: string
           memory_mb?: number
           name: string
@@ -191,6 +203,12 @@ export type Database = {
           created_at?: string
           description?: string | null
           disk_mb?: number
+          egg_id?: string
+          egg_image?: string
+          egg_name?: string
+          egg_secret_variables?: string[]
+          egg_startup?: string
+          egg_variables?: Json
           id?: string
           memory_mb?: number
           name?: string
