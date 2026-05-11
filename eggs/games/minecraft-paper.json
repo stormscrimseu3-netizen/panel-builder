@@ -1,0 +1,22 @@
+{
+  "name": "Minecraft: Paper",
+  "author": "nebula",
+  "description": "PaperMC server. Downloads the latest Paper build for the chosen Minecraft version.",
+  "image": "eclipse-temurin:21-jre",
+  "startup": "java -Xms128M -Xmx{{MAX_MEMORY}}M -jar paper.jar nogui",
+  "stop": "stop",
+  "variables": [
+    { "name": "Minecraft version", "env": "MC_VERSION", "default": "1.21.1", "rules": "required|string" },
+    { "name": "Max memory (MB)",   "env": "MAX_MEMORY", "default": "2048",   "rules": "required|integer" }
+  ],
+  "install": {
+    "image": "eclipse-temurin:21-jre",
+    "script": [
+      "apt-get update -y && apt-get install -y --no-install-recommends curl jq",
+      "cd /home/container",
+      "BUILD=$(curl -s https://api.papermc.io/v2/projects/paper/versions/$MC_VERSION | jq '.builds[-1]')",
+      "curl -o paper.jar -L https://api.papermc.io/v2/projects/paper/versions/$MC_VERSION/builds/$BUILD/downloads/paper-$MC_VERSION-$BUILD.jar",
+      "echo eula=true > eula.txt"
+    ]
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "Node.js 20 Bot",
+  "author": "nebula",
+  "description": "Generic Node.js 20 runtime. Clones a git repo (optional), runs npm install, then starts your main file.",
+  "image": "node:20-bullseye",
+  "startup": "node {{MAIN_FILE}}",
+  "stop": "^C",
+  "variables": [
+    { "name": "Git repository", "env": "GIT_REPO",  "default": "", "rules": "nullable|url" },
+    { "name": "Git branch",     "env": "GIT_BRANCH","default": "main", "rules": "required|string" },
+    { "name": "Main file",      "env": "MAIN_FILE", "default": "index.js", "rules": "required|string" },
+    { "name": "Bot token",      "env": "BOT_TOKEN", "default": "", "rules": "required|string", "secret": true }
+  ],
+  "install": {
+    "image": "node:20-bullseye",
+    "script": [
+      "apt-get update -y && apt-get install -y --no-install-recommends git ca-certificates",
+      "if [ -n \"$GIT_REPO\" ]; then git clone --depth 1 -b \"$GIT_BRANCH\" \"$GIT_REPO\" /home/container/_src && cp -a /home/container/_src/. /home/container/ && rm -rf /home/container/_src; fi",
+      "cd /home/container && (npm install --omit=dev || true)"
+    ]
+  }
+}

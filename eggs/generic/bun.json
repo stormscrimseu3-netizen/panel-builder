@@ -1,0 +1,22 @@
+{
+  "name": "Bun 1.x Bot",
+  "author": "nebula",
+  "description": "Bun runtime. Fast cold starts, native TS support.",
+  "image": "oven/bun:1",
+  "startup": "bun run {{MAIN_FILE}}",
+  "stop": "^C",
+  "variables": [
+    { "name": "Git repository", "env": "GIT_REPO",  "default": "", "rules": "nullable|url" },
+    { "name": "Git branch",     "env": "GIT_BRANCH","default": "main", "rules": "required|string" },
+    { "name": "Main file",      "env": "MAIN_FILE", "default": "index.ts", "rules": "required|string" },
+    { "name": "Bot token",      "env": "BOT_TOKEN", "default": "", "rules": "required|string", "secret": true }
+  ],
+  "install": {
+    "image": "oven/bun:1",
+    "script": [
+      "apt-get update -y && apt-get install -y --no-install-recommends git",
+      "if [ -n \"$GIT_REPO\" ]; then git clone --depth 1 -b \"$GIT_BRANCH\" \"$GIT_REPO\" /home/container/_src && cp -a /home/container/_src/. /home/container/ && rm -rf /home/container/_src; fi",
+      "cd /home/container && bun install || true"
+    ]
+  }
+}

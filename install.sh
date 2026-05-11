@@ -15,6 +15,28 @@ die()  { echo -e "${RED}[nebula]${NC} $*"; exit 1; }
 
 [[ $EUID -eq 0 ]] || die "Run with sudo."
 
+# CRITICAL: when invoked via `curl | bash`, stdin is the pipe — reads would EOF
+# and silently take defaults. Force every prompt to read from the real terminal.
+if [[ ! -t 0 ]]; then
+  if [[ -e /dev/tty ]]; then
+    exec </dev/tty
+  else
+    die "No terminal available for prompts. Download install.sh and run it directly:
+   curl -O https://raw.githubusercontent.com/stormscrimseu3-netizen/panel-builder/main/install.sh
+   sudo bash install.sh"
+  fi
+fi
+
+# Sanity-check the environment. Codesandbox / Docker-in-Docker / overlay FS
+# breaks dpkg with 'Invalid cross-device link'. Bail early with a clear msg.
+if grep -qiE 'codesandbox|gitpod' /etc/hostname 2>/dev/null \
+   || [[ -d /workspace && -d /.codesandbox ]] \
+   || [[ "${CODESANDBOX_SSE:-}" == "1" ]]; then
+  die "This installer needs a real Linux VPS (Hetzner, Contabo, DigitalOcean, OVH, etc.).
+   Codesandbox / Gitpod use an overlay filesystem that breaks apt + Docker.
+   Spin up a cheap VPS (\$4/mo works) and re-run there."
+fi
+
 REPO_GIT="https://github.com/stormscrimseu3-netizen/panel-builder.git"
 
 echo
@@ -24,7 +46,11 @@ echo "============================================"
 echo "  1) Install PANEL  (web UI on this server, nginx + TLS)"
 echo "  2) Install WINGS  (daemon — runs bots in Docker)"
 echo
-ask "Choice [1]:"; read -r ROLE; ROLE=${ROLE:-1}
+ROLE=""
+while [[ "$ROLE" != "1" && "$ROLE" != "2" ]]; do
+  ask "Choice (1 or 2):"; read -r ROLE || ROLE=""
+  [[ "$ROLE" =~ ^[12]$ ]] || warn "Please type 1 or 2."
+done
 
 # ---------- helpers ----------
 apt_install() {
@@ -53,6 +79,30 @@ public_ip() {
   curl -fsSL https://api.ipify.org 2>/dev/null || curl -fsSL https://ifconfig.me 2>/dev/null || echo "unknown"
 }
 
+prompt() {
+  # prompt VAR "Question" "default"
+  local __var="$1" __q="$2" __def="${3:-}"
+  local __ans=""
+  if [[ -n "$__def" ]]; then
+    ask "$__q [$__def]:"
+  else
+    ask "$__q:"
+  fi
+  read -r __ans || __ans=""
+  [[ -z "$__ans" && -n "$__def" ]] && __ans="$__def"
+  printf -v "$__var" '%s' "$__ans"
+}
+
+prompt_required() {
+  local __var="$1" __q="$2" __ans=""
+  while [[ -z "${__ans:-}" ]]; do
+    ask "$__q:"
+    read -r __ans || __ans=""
+    [[ -z "$__ans" ]] && warn "This field is required."
+  done
+  printf -v "$__var" '%s' "$__ans"
+}
+
 # ============================================================
 # PANEL
 # ============================================================
@@ -62,18 +112,17 @@ install_panel() {
   install_node
 
   echo
-  ask "Public domain for the panel (e.g. panel.example.com):"; read -r DOMAIN
-  [[ -n "$DOMAIN" ]] || die "Domain required."
-  ask "Panel display name [NebulaPanel]:"; read -r PANEL_NAME; PANEL_NAME=${PANEL_NAME:-NebulaPanel}
-  ask "Use Cloudflare proxy in front of this server? (y/N):"; read -r CF; CF=${CF:-N}
+  prompt_required DOMAIN "Public domain for the panel (e.g. panel.example.com)"
+  prompt PANEL_NAME "Panel display name" "NebulaPanel"
+  prompt CF "Use Cloudflare proxy in front of this server? (y/N)" "N"
 
   echo
   say "You will need a Lovable Cloud (Supabase) project for the database."
   say "Get the values from your Lovable project → Cloud → Settings."
-  ask "SUPABASE_URL (https://xxxx.supabase.co):"; read -r SUPA_URL
-  ask "SUPABASE_PUBLISHABLE_KEY:"; read -r SUPA_PUB
-  ask "SUPABASE_SERVICE_ROLE_KEY (server-only, kept on this box):"; read -rs SUPA_SR; echo
-  ask "SUPABASE_PROJECT_ID:"; read -r SUPA_PID
+  prompt_required SUPA_URL "SUPABASE_URL (https://xxxx.supabase.co)"
+  prompt_required SUPA_PUB "SUPABASE_PUBLISHABLE_KEY"
+  ask "SUPABASE_SERVICE_ROLE_KEY (server-only, hidden):"; read -rs SUPA_SR; echo
+  prompt_required SUPA_PID "SUPABASE_PROJECT_ID"
 
   say "Cloning panel source..."
   rm -rf /opt/nebula-panel
@@ -155,18 +204,11 @@ NGINX
   echo "  Server IPv4: $IP"
   echo
   echo "  → Point your DNS at this IP:"
-  echo "      Type: A"
-  echo "      Name: $DOMAIN"
-  echo "      Value: $IP"
+  echo "      Type: A   Name: $DOMAIN   Value: $IP"
   if [[ "$CF" =~ ^[Yy]$ ]]; then
     echo "      Proxy (orange cloud): ON in Cloudflare"
     echo "      SSL/TLS mode: Full (strict) recommended"
-  fi
-  echo
-  echo "  After DNS resolves (check: dig $DOMAIN +short)"
-  if [[ "$CF" =~ ^[Yy]$ ]]; then
-    warn "Skipping certbot — Cloudflare provides the public TLS."
-    warn "On Cloudflare set SSL/TLS → Origin Server → Create cert, install on this box, OR use Flexible mode."
+    warn "Skipping certbot — Cloudflare provides public TLS."
   else
     say "Issuing TLS certificate via Let's Encrypt..."
     certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect || \
@@ -213,6 +255,12 @@ WantedBy=multi-user.target
 UNIT
   systemctl daemon-reload
 
+  # Pre-pull common egg images so first-server start is instant
+  say "Pre-pulling common runtime images..."
+  for img in node:20-bullseye node:22-bullseye python:3.12-bullseye eclipse-temurin:21-jre oven/bun:1 denoland/deno:alpine; do
+    docker pull "$img" >/dev/null 2>&1 && say "  ✓ $img" || warn "  skipped $img"
+  done
+
   IP=$(public_ip)
   echo
   echo "============================================"
@@ -232,5 +280,4 @@ UNIT
 case "$ROLE" in
   1) install_panel ;;
   2) install_wings ;;
-  *) die "Invalid choice." ;;
 esac
