@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/server-status";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -17,6 +18,12 @@ import {
 import type { Database } from "@/integrations/supabase/types";
 
 type ServerStatus = Database["public"]["Enums"]["server_status"];
+type EggVariables = Record<string, string | number | boolean | null>;
+
+function asEggVariables(value: unknown): EggVariables {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return value as EggVariables;
+}
 
 export const Route = createFileRoute("/_authenticated/servers/$serverId")({
   component: ServerDetailPage,
@@ -72,6 +79,7 @@ function ServerDetailPage() {
 
   if (isLoading) return <div className="p-10 text-sm text-muted-foreground">Loading…</div>;
   if (!server) return <div className="p-10">Not found</div>;
+  const eggVariables = asEggVariables(server.egg_variables);
 
   return (
     <div className="p-6 md:p-10">
@@ -85,7 +93,7 @@ function ServerDetailPage() {
             <StatusBadge status={server.status} />
           </div>
           <p className="mt-1 text-sm text-muted-foreground mono">
-            {server.runtime} · {server.memory_mb}MB · {server.cpu_percent}% CPU · {server.node_id}
+            {server.egg_name ?? server.runtime} · {server.memory_mb}MB · {server.cpu_percent}% CPU · {server.node_id}
           </p>
         </div>
         <div className="flex gap-2">
@@ -117,7 +125,31 @@ function ServerDetailPage() {
           <FilesTab serverId={serverId} userId={user?.id ?? ""} />
         </TabsContent>
         <TabsContent value="settings" className="mt-4">
-          <div className="card-elevated rounded-2xl p-6">
+          <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
+            <div className="card-elevated rounded-2xl p-6">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="font-semibold">Egg configuration</h3>
+                <Badge variant="secondary">{server.runtime}</Badge>
+                <Badge variant="outline" className="mono">{server.egg_image}</Badge>
+              </div>
+              <p className="mt-3 text-xs font-medium text-muted-foreground">Startup command</p>
+              <pre className="mono mt-2 overflow-x-auto rounded-md bg-background/60 p-3 text-xs">{server.start_command}</pre>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                {Object.entries(eggVariables).map(([key, value]) => {
+                  const secret = server.egg_secret_variables?.includes(key);
+                  return (
+                    <div key={key} className="rounded-lg border border-border bg-background/40 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="mono text-xs text-muted-foreground">{key}</span>
+                        {secret && <Badge variant="secondary">secret</Badge>}
+                      </div>
+                      <p className="mono mt-1 truncate text-sm">{secret ? "••••••••••••" : String(value ?? "")}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="card-elevated rounded-2xl p-6">
             <h3 className="font-semibold">Danger zone</h3>
             <p className="mt-1 text-sm text-muted-foreground">Permanently delete this server and all its files.</p>
             <AlertDialog>
@@ -135,6 +167,7 @@ function ServerDetailPage() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+            </div>
           </div>
         </TabsContent>
       </Tabs>
