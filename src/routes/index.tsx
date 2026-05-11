@@ -69,10 +69,10 @@ function Landing() {
           <div className="card-elevated rounded-2xl p-8 md:p-12">
             <p className="text-sm uppercase tracking-widest text-muted-foreground">One-line install</p>
             <pre className="mono mt-4 overflow-x-auto rounded-lg bg-background/60 p-4 text-sm">
-              <span className="text-success">$</span> curl -sSL https://get.nebulapanel.dev/install.sh | bash
+              <span className="text-success">$</span> curl -fsSL https://raw.githubusercontent.com/stormscrimseu3-netizen/panel-builder/main/install.sh | sudo bash
             </pre>
             <p className="mt-4 text-sm text-muted-foreground">
-              Works on Debian, Ubuntu, Docker, and GitHub Codespaces. The installer asks whether to set up nginx or a Cloudflare Tunnel, then walks you through configuring a node daemon.
+              Works on a real Debian or Ubuntu VPS. The installer shows RUN REAL NGINX, asks you to choose 1 or 2, then prints the IPv4 address for DNS.
             </p>
           </div>
         </section>
