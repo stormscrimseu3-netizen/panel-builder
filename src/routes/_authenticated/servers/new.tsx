@@ -1,8 +1,8 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, LockKeyhole } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { defaultEggVariables, eggs, getEgg, renderStartup, validateEggVariables } from "@/lib/egg-catalog";
 
 export const Route = createFileRoute("/_authenticated/servers/new")({
   component: NewServerPage,
@@ -18,10 +20,8 @@ export const Route = createFileRoute("/_authenticated/servers/new")({
 const schema = z.object({
   name: z.string().trim().min(1, "Name required").max(60),
   description: z.string().trim().max(280).optional(),
-  runtime: z.enum(["nodejs", "python", "java", "docker"]),
   memory_mb: z.number().int().min(128).max(8192),
   cpu_percent: z.number().int().min(10).max(400),
-  start_command: z.string().trim().min(1).max(200),
 });
 
 function NewServerPage() {
@@ -29,20 +29,40 @@ function NewServerPage() {
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [runtime, setRuntime] = useState<"nodejs" | "python" | "java" | "docker">("nodejs");
+  const [eggId, setEggId] = useState("generic/nodejs");
+  const [variables, setVariables] = useState<Record<string, string>>(() => defaultEggVariables(getEgg("generic/nodejs")));
+  const [visibleSecrets, setVisibleSecrets] = useState<Record<string, boolean>>({});
   const [memoryMb, setMemoryMb] = useState(512);
   const [cpuPercent, setCpuPercent] = useState(50);
-  const [startCommand, setStartCommand] = useState("node index.js");
   const [busy, setBusy] = useState(false);
+  const selectedEgg = useMemo(() => getEgg(eggId), [eggId]);
+  const startCommand = useMemo(() => renderStartup(selectedEgg.startup, variables), [selectedEgg, variables]);
+
+  const selectEgg = (id: string) => {
+    const egg = getEgg(id);
+    setEggId(egg.id);
+    setVariables(defaultEggVariables(egg));
+    setVisibleSecrets({});
+  };
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    const parsed = schema.safeParse({ name, description, runtime, memory_mb: memoryMb, cpu_percent: cpuPercent, start_command: startCommand });
+    const parsed = schema.safeParse({ name, description, memory_mb: memoryMb, cpu_percent: cpuPercent });
     if (!parsed.success) return toast.error(parsed.error.issues[0].message);
+    const variableError = validateEggVariables(selectedEgg, variables);
+    if (variableError) return toast.error(variableError);
     if (!user) return;
     setBusy(true);
     const { data, error } = await supabase.from("servers").insert({
       ...parsed.data,
+      runtime: selectedEgg.runtime,
+      start_command: startCommand,
+      egg_id: selectedEgg.id,
+      egg_name: selectedEgg.name,
+      egg_image: selectedEgg.image,
+      egg_startup: selectedEgg.startup,
+      egg_variables: variables,
+      egg_secret_variables: selectedEgg.variables.filter((variable) => variable.secret).map((variable) => variable.env),
       user_id: user.id,
     }).select().single();
     setBusy(false);
