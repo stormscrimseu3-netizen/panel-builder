@@ -18,7 +18,7 @@ to register a Linux server.
 ### 2. Install the daemon on your server
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/stormscrimseu3-netizen/panel-builder/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/stormscrimseu3-netizen/panel-builder/main/install.sh | sudo bash
 ```
 
 Pick **Node daemon**, then paste the `nebula-wings configure ...` command shown
@@ -26,9 +26,9 @@ in the panel.
 
 ### 3. Create a server
 
-In **Servers → New server**, pick the runtime (Node.js, Python, Java, or a
-custom Docker image), set memory + CPU caps, define your start command, and
-upload your bot files. The daemon spins up an isolated Docker container.
+In **Servers → New server**, pick an egg, fill its required variables, set
+memory + CPU caps, and upload your bot files. The daemon spins up an isolated
+Docker container using the egg image and startup command.
 
 ## Architecture
 
