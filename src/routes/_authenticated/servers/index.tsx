@@ -49,12 +49,12 @@ function ServerListPage() {
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="font-semibold">{s.name}</h3>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{s.description || "No description"}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{s.description || s.egg_name || "No description"}</p>
                 </div>
                 <StatusBadge status={s.status} />
               </div>
               <dl className="mt-4 grid grid-cols-3 gap-2 text-xs mono text-muted-foreground">
-                <div><dt>RUNTIME</dt><dd className="text-foreground">{s.runtime}</dd></div>
+                <div><dt>EGG</dt><dd className="truncate text-foreground">{s.egg_name}</dd></div>
                 <div><dt>MEM</dt><dd className="text-foreground">{s.memory_mb}M</dd></div>
                 <div><dt>CPU</dt><dd className="text-foreground">{s.cpu_percent}%</dd></div>
               </dl>
