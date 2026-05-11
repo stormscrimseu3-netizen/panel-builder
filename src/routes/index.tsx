@@ -17,8 +17,14 @@ function Landing() {
       <header className="container mx-auto flex items-center justify-between px-6 py-5">
         <Brand />
         <nav className="flex items-center gap-2">
-          <Link to="/login"><Button variant="ghost" size="sm">Sign in</Button></Link>
-          <Link to="/signup"><Button size="sm">Get started</Button></Link>
+          <Link to="/login">
+            <Button variant="ghost" size="sm">
+              Sign in
+            </Button>
+          </Link>
+          <Link to="/signup">
+            <Button size="sm">Get started</Button>
+          </Link>
         </nav>
       </header>
 
@@ -29,10 +35,12 @@ function Landing() {
             Open-source bot hosting panel
           </div>
           <h1 className="mx-auto mt-6 max-w-3xl text-5xl font-bold tracking-tight md:text-6xl">
-            Host your bots like the pros, on your own <span className="text-gradient">infrastructure</span>.
+            Host your bots like the pros, on your own{" "}
+            <span className="text-gradient">infrastructure</span>.
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-lg text-muted-foreground">
-            Spin up Discord bots, manage files, watch live console output, and control resources — all from a single beautiful panel.
+            Spin up Discord bots, manage files, watch live console output, and control resources —
+            all from a single beautiful panel.
           </p>
           <div className="mt-8 flex items-center justify-center gap-3">
             <Link to="/signup">
@@ -41,19 +49,45 @@ function Landing() {
               </Button>
             </Link>
             <a href="https://github.com" target="_blank" rel="noreferrer">
-              <Button variant="outline" size="lg">View on GitHub</Button>
+              <Button variant="outline" size="lg">
+                View on GitHub
+              </Button>
             </a>
           </div>
         </section>
 
         <section className="container mx-auto grid gap-4 px-6 pb-24 md:grid-cols-3">
           {[
-            { icon: Bot, title: "Bot servers", desc: "Create, start, stop, and delete instances in one click." },
-            { icon: Terminal, title: "Live console", desc: "Tail logs and send commands like SSH — right in the browser." },
-            { icon: Files, title: "File manager", desc: "Edit code, configs, and assets without leaving the panel." },
-            { icon: Cpu, title: "Resource limits", desc: "Cap memory, CPU, and disk per server to stay in budget." },
-            { icon: Shield, title: "Per-user isolation", desc: "Row-level security keeps every user's data private by default." },
-            { icon: Zap, title: "Built for daemons", desc: "Pairs with a wings daemon over WebSocket for real Docker control." },
+            {
+              icon: Bot,
+              title: "Bot servers",
+              desc: "Create, start, stop, and delete instances in one click.",
+            },
+            {
+              icon: Terminal,
+              title: "Live console",
+              desc: "Tail logs and send commands like SSH — right in the browser.",
+            },
+            {
+              icon: Files,
+              title: "File manager",
+              desc: "Edit code, configs, and assets without leaving the panel.",
+            },
+            {
+              icon: Cpu,
+              title: "Resource limits",
+              desc: "Cap memory, CPU, and disk per server to stay in budget.",
+            },
+            {
+              icon: Shield,
+              title: "Per-user isolation",
+              desc: "Row-level security keeps every user's data private by default.",
+            },
+            {
+              icon: Zap,
+              title: "Built for daemons",
+              desc: "Pairs with a wings daemon over WebSocket for real Docker control.",
+            },
           ].map((f) => (
             <div key={f.title} className="card-elevated rounded-xl p-6">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent">
@@ -67,12 +101,17 @@ function Landing() {
 
         <section className="container mx-auto px-6 pb-32">
           <div className="card-elevated rounded-2xl p-8 md:p-12">
-            <p className="text-sm uppercase tracking-widest text-muted-foreground">One-line install</p>
+            <p className="text-sm uppercase tracking-widest text-muted-foreground">
+              One-line install
+            </p>
             <pre className="mono mt-4 overflow-x-auto rounded-lg bg-background/60 p-4 text-sm">
-              <span className="text-success">$</span> curl -fsSL https://raw.githubusercontent.com/stormscrimseu3-netizen/panel-builder/main/install.sh | sudo bash
+              <span className="text-success">$</span> curl -fsSL
+              https://raw.githubusercontent.com/stormscrimseu3-netizen/panel-builder/main/install.sh
+              | sudo bash
             </pre>
             <p className="mt-4 text-sm text-muted-foreground">
-              Works on a real Debian or Ubuntu VPS. The installer shows RUN REAL NGINX, asks you to choose 1 or 2, then prints the IPv4 address for DNS.
+              Works on a real Debian or Ubuntu VPS. The installer shows RUN REAL NGINX, asks you to
+              choose 1 or 2, then prints the IPv4 address for DNS.
             </p>
           </div>
         </section>

@@ -40,12 +40,12 @@ Docker container using the egg image and startup command.
 
 ## Repo layout
 
-| Path | What |
-| --- | --- |
-| `src/` | Panel web app (TanStack Start + Supabase) |
-| `wings/` | Node daemon — install on your VPS |
-| `install.sh` | One-line installer for the daemon |
-| `supabase/` | DB migrations |
+| Path         | What                                      |
+| ------------ | ----------------------------------------- |
+| `src/`       | Panel web app (TanStack Start + Supabase) |
+| `wings/`     | Node daemon — install on your VPS         |
+| `install.sh` | One-line installer for the daemon         |
+| `supabase/`  | DB migrations                             |
 
 ## Configuration
 
