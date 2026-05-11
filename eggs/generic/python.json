@@ -1,0 +1,22 @@
+{
+  "name": "Python 3.12 Bot",
+  "author": "nebula",
+  "description": "Generic Python 3.12 runtime. Installs requirements.txt then runs your main file.",
+  "image": "python:3.12-bullseye",
+  "startup": "python -u {{MAIN_FILE}}",
+  "stop": "^C",
+  "variables": [
+    { "name": "Git repository", "env": "GIT_REPO",  "default": "", "rules": "nullable|url" },
+    { "name": "Git branch",     "env": "GIT_BRANCH","default": "main", "rules": "required|string" },
+    { "name": "Main file",      "env": "MAIN_FILE", "default": "bot.py", "rules": "required|string" },
+    { "name": "Bot token",      "env": "BOT_TOKEN", "default": "", "rules": "required|string", "secret": true }
+  ],
+  "install": {
+    "image": "python:3.12-bullseye",
+    "script": [
+      "apt-get update -y && apt-get install -y --no-install-recommends git",
+      "if [ -n \"$GIT_REPO\" ]; then git clone --depth 1 -b \"$GIT_BRANCH\" \"$GIT_REPO\" /home/container/_src && cp -a /home/container/_src/. /home/container/ && rm -rf /home/container/_src; fi",
+      "cd /home/container && [ -f requirements.txt ] && pip install --no-cache-dir -r requirements.txt || true"
+    ]
+  }
+}

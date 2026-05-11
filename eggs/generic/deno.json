@@ -1,0 +1,20 @@
+{
+  "name": "Deno Bot",
+  "author": "nebula",
+  "description": "Deno runtime — TypeScript out of the box, secure by default.",
+  "image": "denoland/deno:alpine",
+  "startup": "deno run -A {{MAIN_FILE}}",
+  "stop": "^C",
+  "variables": [
+    { "name": "Git repository", "env": "GIT_REPO",  "default": "", "rules": "nullable|url" },
+    { "name": "Git branch",     "env": "GIT_BRANCH","default": "main", "rules": "required|string" },
+    { "name": "Main file",      "env": "MAIN_FILE", "default": "main.ts", "rules": "required|string" },
+    { "name": "Bot token",      "env": "BOT_TOKEN", "default": "", "rules": "required|string", "secret": true }
+  ],
+  "install": {
+    "image": "alpine/git",
+    "script": [
+      "if [ -n \"$GIT_REPO\" ]; then git clone --depth 1 -b \"$GIT_BRANCH\" \"$GIT_REPO\" /home/container/_src && cp -a /home/container/_src/. /home/container/ && rm -rf /home/container/_src; fi"
+    ]
+  }
+}

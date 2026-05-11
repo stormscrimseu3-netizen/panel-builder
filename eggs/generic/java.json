@@ -1,0 +1,17 @@
+{
+  "name": "Java 21 (JDA / generic JAR)",
+  "author": "nebula",
+  "description": "JRE 21 — runs an executable JAR. Works for JDA bots and most JVM apps.",
+  "image": "eclipse-temurin:21-jre",
+  "startup": "java -Xms128M -Xmx{{MAX_MEMORY}}M -jar {{JAR_FILE}}",
+  "stop": "^C",
+  "variables": [
+    { "name": "JAR file",  "env": "JAR_FILE",   "default": "bot.jar", "rules": "required|string" },
+    { "name": "Max memory (MB)", "env": "MAX_MEMORY", "default": "1024", "rules": "required|integer" },
+    { "name": "Bot token", "env": "BOT_TOKEN",  "default": "", "rules": "required|string", "secret": true }
+  ],
+  "install": {
+    "image": "eclipse-temurin:21-jre",
+    "script": [ "echo 'Upload your JAR via the panel file manager.'" ]
+  }
+}
