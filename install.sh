@@ -38,14 +38,19 @@ if [[ ! -t 0 ]]; then
   fi
 fi
 
-# Sanity-check the environment. Codesandbox / Docker-in-Docker / overlay FS
-# breaks dpkg with 'Invalid cross-device link'. Bail early with a clear msg.
-if grep -qiE 'codesandbox|gitpod' /etc/hostname 2>/dev/null \
-   || [[ -d /workspace && -d /.codesandbox ]] \
-   || [[ "${CODESANDBOX_SSE:-}" == "1" ]]; then
-  die "This installer needs a real Linux VPS (Hetzner, Contabo, DigitalOcean, OVH, etc.).
-   Codesandbox / Gitpod use an overlay filesystem that breaks apt + Docker.
-   Spin up a cheap VPS (\$4/mo works) and re-run there."
+# Detect sandboxed environments (Codespaces / Codesandbox / Gitpod / Firebase
+# Studio / generic Docker). They lack systemd + public DNS, so we adapt instead
+# of bailing: skip systemd (run via nohup), skip ufw, skip certbot.
+SANDBOX=0
+if grep -qiE 'codesandbox|gitpod|codespaces' /etc/hostname 2>/dev/null \
+   || [[ -d /workspaces ]] || [[ -d /.codesandbox ]] \
+   || [[ -n "${CODESPACES:-}" ]] || [[ -n "${CODESANDBOX_SSE:-}" ]] \
+   || [[ -n "${GITPOD_WORKSPACE_ID:-}" ]] || [[ -n "${MONOSPACE_ENV:-}" ]] \
+   || [[ -f /.dockerenv ]] \
+   || ! pidof systemd >/dev/null 2>&1; then
+  SANDBOX=1
+  warn "Sandbox/container detected — will skip systemd, ufw, and TLS."
+  warn "Panel will run with 'nohup node …' instead. For production use a real VPS."
 fi
 
 REPO_GIT="https://github.com/stormscrimseu3-netizen/panel-builder.git"
