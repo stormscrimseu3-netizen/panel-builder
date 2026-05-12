@@ -174,8 +174,16 @@ EOF
   say "Building panel..."
   npm run build
 
-  say "Creating systemd service..."
-  cat >/etc/systemd/system/nebula-panel.service <<UNIT
+  if [[ "$SANDBOX" == "1" ]]; then
+    say "Sandbox mode — starting panel with nohup (no systemd)..."
+    pkill -f '.output/server/index.mjs' 2>/dev/null || true
+    set -a; . /opt/nebula-panel/.env; set +a
+    nohup /usr/bin/node .output/server/index.mjs >/var/log/nebula-panel.log 2>&1 &
+    echo $! >/var/run/nebula-panel.pid
+    sleep 2
+  else
+    say "Creating systemd service..."
+    cat >/etc/systemd/system/nebula-panel.service <<UNIT
 [Unit]
 Description=Nebula Panel
 After=network-online.target
@@ -191,8 +199,9 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 UNIT
-  systemctl daemon-reload
-  systemctl enable --now nebula-panel
+    systemctl daemon-reload
+    systemctl enable --now nebula-panel
+  fi
 
   say "Configuring nginx for $DOMAIN..."
   cat >/etc/nginx/sites-available/nebula-panel <<NGINX
@@ -216,11 +225,14 @@ NGINX
   ln -sf /etc/nginx/sites-available/nebula-panel /etc/nginx/sites-enabled/nebula-panel
   rm -f /etc/nginx/sites-enabled/default
   nginx -t
-  systemctl reload nginx
-
-  ufw allow 80/tcp >/dev/null 2>&1 || true
-  ufw allow 443/tcp >/dev/null 2>&1 || true
-  ufw allow 22/tcp >/dev/null 2>&1 || true
+  if [[ "$SANDBOX" == "1" ]]; then
+    service nginx restart 2>/dev/null || nginx -s reload 2>/dev/null || nginx
+  else
+    systemctl reload nginx
+    ufw allow 80/tcp >/dev/null 2>&1 || true
+    ufw allow 443/tcp >/dev/null 2>&1 || true
+    ufw allow 22/tcp >/dev/null 2>&1 || true
+  fi
 
   IP=$(public_ip)
   echo
@@ -230,34 +242,41 @@ NGINX
   echo "  Domain:      $DOMAIN"
   echo "  Server IPv4: $IP"
   echo
-  echo "  → Point your DNS at this IP:"
-  echo "      Type: A   Name: $DOMAIN   Value: $IP"
-  if [[ "$CF" =~ ^[Yy]$ ]]; then
-    echo "      Proxy (orange cloud): ON in Cloudflare"
-    echo "      SSL/TLS mode: Full (strict) recommended"
-    warn "Skipping certbot — Cloudflare provides public TLS."
+
+  if [[ "$SANDBOX" == "1" ]]; then
+    warn "Sandbox detected — skipping DNS pause and TLS."
+    say "Panel running locally on port 3535 (and nginx on 80)."
+    say "In Codespaces/Firebase Studio: open the forwarded port 80 or 3535."
+    say "Logs: tail -f /var/log/nebula-panel.log"
   else
-    echo
-    warn "Create the A record above at your DNS provider NOW."
-    warn "Let's Encrypt will fail if $DOMAIN doesn't already resolve to $IP."
-    ask "Press ENTER once the DNS record is created (or type 'skip' to skip TLS):"
-    read -r DNS_READY || DNS_READY=""
-    if [[ "$DNS_READY" == "skip" ]]; then
-      warn "Skipping TLS. Re-run later: certbot --nginx -d $DOMAIN"
+    echo "  → Point your DNS at this IP:"
+    echo "      Type: A   Name: $DOMAIN   Value: $IP"
+    if [[ "$CF" =~ ^[Yy]$ ]]; then
+      echo "      Proxy (orange cloud): ON in Cloudflare"
+      echo "      SSL/TLS mode: Full (strict) recommended"
+      warn "Skipping certbot — Cloudflare provides public TLS."
     else
-      # Wait briefly for propagation; poll up to ~2 min.
-      say "Checking DNS for $DOMAIN..."
-      for i in $(seq 1 24); do
-        RESOLVED=$(getent hosts "$DOMAIN" | awk '{print $1}' | head -n1)
-        if [[ "$RESOLVED" == "$IP" ]]; then
-          say "DNS resolves to $IP ✓"; break
-        fi
-        [[ $i -eq 24 ]] && warn "DNS still doesn't match ($RESOLVED vs $IP) — trying certbot anyway."
-        sleep 5
-      done
-      say "Issuing TLS certificate via Let's Encrypt..."
-      certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect || \
-        warn "certbot failed — re-run after DNS propagates: certbot --nginx -d $DOMAIN"
+      echo
+      warn "Create the A record above at your DNS provider NOW."
+      warn "Let's Encrypt will fail if $DOMAIN doesn't already resolve to $IP."
+      ask "Press ENTER once the DNS record is created (or type 'skip' to skip TLS):"
+      read -r DNS_READY || DNS_READY=""
+      if [[ "$DNS_READY" == "skip" ]]; then
+        warn "Skipping TLS. Re-run later: certbot --nginx -d $DOMAIN"
+      else
+        say "Checking DNS for $DOMAIN..."
+        for i in $(seq 1 24); do
+          RESOLVED=$(getent hosts "$DOMAIN" | awk '{print $1}' | head -n1)
+          if [[ "$RESOLVED" == "$IP" ]]; then
+            say "DNS resolves to $IP ✓"; break
+          fi
+          [[ $i -eq 24 ]] && warn "DNS still doesn't match ($RESOLVED vs $IP) — trying certbot anyway."
+          sleep 5
+        done
+        say "Issuing TLS certificate via Let's Encrypt..."
+        certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect || \
+          warn "certbot failed — re-run after DNS propagates: certbot --nginx -d $DOMAIN"
+      fi
     fi
   fi
   echo
