@@ -20,7 +20,10 @@ echo "============================================"
 echo "       RUN REAL NGINX"
 echo "       Nebula Panel installer"
 echo "============================================"
-echo "If nothing appears after this, run: curl -fsSL https://raw.githubusercontent.com/stormscrimseu3-netizen/panel-builder/main/install.sh -o install.sh && sudo bash install.sh"
+echo "If nothing appears or the prompts skip, run instead:"
+echo "  bash <(curl -fsSL https://raw.githubusercontent.com/stormscrimseu3-netizen/panel-builder/main/install.sh)"
+echo "or:"
+echo "  curl -fsSL https://raw.githubusercontent.com/stormscrimseu3-netizen/panel-builder/main/install.sh -o install.sh && sudo bash install.sh"
 echo
 
 # CRITICAL: when invoked via `curl | bash`, stdin is the pipe — reads would EOF
