@@ -303,7 +303,10 @@ install_wings() {
   ln -sf /opt/nebula-wings/src/cli.js /usr/local/bin/nebula-wings
   chmod +x /usr/local/bin/nebula-wings
 
-  cat >/etc/systemd/system/nebula-wings.service <<'UNIT'
+  if [[ "$SANDBOX" == "1" ]]; then
+    warn "Sandbox mode — skipping systemd unit. Start manually with: nebula-wings"
+  else
+    cat >/etc/systemd/system/nebula-wings.service <<'UNIT'
 [Unit]
 Description=Nebula Wings daemon
 After=docker.service network-online.target
@@ -318,7 +321,8 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 UNIT
-  systemctl daemon-reload
+    systemctl daemon-reload
+  fi
 
   # Pre-pull common egg images so first-server start is instant
   say "Pre-pulling common runtime images..."
