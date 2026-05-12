@@ -307,9 +307,79 @@ export const eggs: EggDefinition[] = [
   },
 ];
 
-export function getEgg(id: string) {
-  return eggs.find((egg) => egg.id === id) ?? eggs[0];
+const CUSTOM_EGGS_KEY = "nebula.custom-eggs.v1";
+
+export function getCustomEggs(): EggDefinition[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(CUSTOM_EGGS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as EggDefinition[]) : [];
+  } catch {
+    return [];
+  }
 }
+
+export function saveCustomEggs(list: EggDefinition[]) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(CUSTOM_EGGS_KEY, JSON.stringify(list));
+}
+
+export function getAllEggs(): EggDefinition[] {
+  return [...eggs, ...getCustomEggs()];
+}
+
+export function getEgg(id: string) {
+  return getAllEggs().find((egg) => egg.id === id) ?? eggs[0];
+}
+
+/** Convert a Pterodactyl-style egg JSON into our EggDefinition. */
+export function importPterodactylEgg(json: unknown): EggDefinition {
+  if (!json || typeof json !== "object") throw new Error("Invalid egg JSON");
+  const j = json as Record<string, any>;
+  const name: string = j.name ?? "Imported egg";
+  const author: string = j.author ?? "imported";
+  const description: string = j.description ?? "";
+  const image: string =
+    j.image ??
+    (j.docker_images && typeof j.docker_images === "object"
+      ? (Object.values(j.docker_images)[0] as string)
+      : "node:20-bullseye");
+  const startup: string = j.startup ?? "node {{MAIN_FILE}}";
+  const stop: string = j.stop ?? (j.config?.stop?.value ?? "^C");
+
+  const rawVars: any[] = Array.isArray(j.variables) ? j.variables : [];
+  const variables: EggVariable[] = rawVars.map((v) => ({
+    name: v.name ?? v.env_variable ?? "Variable",
+    description: v.description,
+    env: v.env_variable ?? v.env ?? v.name?.toUpperCase().replace(/\s+/g, "_") ?? "VAR",
+    default: String(v.default_value ?? v.default ?? ""),
+    rules: v.rules ?? "required|string",
+    secret: Boolean(v.secret) || /token|password|secret|key/i.test(v.env_variable ?? v.env ?? ""),
+    user_viewable: v.user_viewable !== false,
+    user_editable: v.user_editable !== false,
+    field_type: v.field_type,
+  }));
+
+  const slug = (name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "egg")
+    .slice(0, 48);
+  const id = `custom/${slug}-${Date.now().toString(36)}`;
+
+  return {
+    id,
+    name,
+    author,
+    description,
+    category: "Generic",
+    runtime: /python/i.test(image) ? "python" : /java|temurin|openjdk/i.test(image) ? "java" : "nodejs",
+    image,
+    startup,
+    stop,
+    variables,
+  };
+}
+
 
 export function defaultEggVariables(egg: EggDefinition) {
   return Object.fromEntries(egg.variables.map((variable) => [variable.env, variable.default]));

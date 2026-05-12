@@ -19,7 +19,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import {
   defaultEggVariables,
-  eggs,
+  getAllEggs,
   getEgg,
   renderStartup,
   validateEggVariables,
@@ -131,7 +131,7 @@ function NewServerPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {eggs.map((egg) => (
+                {getAllEggs().map((egg) => (
                   <SelectItem key={egg.id} value={egg.id}>
                     {egg.category} / {egg.name}
                   </SelectItem>
