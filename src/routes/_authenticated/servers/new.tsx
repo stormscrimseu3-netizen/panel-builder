@@ -19,7 +19,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import {
   defaultEggVariables,
-  eggs,
+  getAllEggs,
   getEgg,
   renderStartup,
   validateEggVariables,
