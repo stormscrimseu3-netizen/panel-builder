@@ -123,13 +123,24 @@ install_panel() {
   prompt PANEL_NAME "Panel display name" "NebulaPanel"
   prompt CF "Use Cloudflare proxy in front of this server? (y/N)" "N"
 
+  # Defaults point at the hosted Lovable Cloud project that ships with the panel.
+  # Press ENTER to accept — only override if you've forked the panel onto your
+  # own Lovable Cloud / Supabase project.
+  DEFAULT_SUPA_URL="https://pxwvtdufrjqhqkwbdsms.supabase.co"
+  DEFAULT_SUPA_PUB="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB4d3Z0ZHVmcmpxaHFrd2Jkc21zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0MTA2OTUsImV4cCI6MjA5Mzk4NjY5NX0.9ZFrD1Pc2Fbg_mpyev0c9uxESIKZIF7rzh6j6493cGk"
+  DEFAULT_SUPA_PID="pxwvtdufrjqhqkwbdsms"
+
   echo
-  say "You will need a Lovable Cloud (Supabase) project for the database."
-  say "Get the values from your Lovable project → Cloud → Settings."
-  prompt_required SUPA_URL "SUPABASE_URL (https://xxxx.supabase.co)"
-  prompt_required SUPA_PUB "SUPABASE_PUBLISHABLE_KEY"
-  ask "SUPABASE_SERVICE_ROLE_KEY (server-only, hidden):"; read -rs SUPA_SR; echo
-  prompt_required SUPA_PID "SUPABASE_PROJECT_ID"
+  say "Backend (Lovable Cloud) — press ENTER on each to use the bundled defaults."
+  say "Only change these if you've connected your own Lovable Cloud project."
+  prompt SUPA_URL "SUPABASE_URL" "$DEFAULT_SUPA_URL"
+  prompt SUPA_PUB "SUPABASE_PUBLISHABLE_KEY" "$DEFAULT_SUPA_PUB"
+  prompt SUPA_PID "SUPABASE_PROJECT_ID" "$DEFAULT_SUPA_PID"
+  SUPA_SR=""
+  if [[ "$SUPA_URL" != "$DEFAULT_SUPA_URL" ]]; then
+    ask "SUPABASE_SERVICE_ROLE_KEY (server-only, hidden — leave blank to skip):"
+    read -rs SUPA_SR; echo
+  fi
 
   say "Cloning panel source..."
   rm -rf /opt/nebula-panel
