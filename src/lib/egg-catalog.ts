@@ -308,7 +308,7 @@ export const eggs: EggDefinition[] = [
 ];
 
 export function getEgg(id: string) {
-  return eggs.find((egg) => egg.id === id) ?? eggs[0];
+  return getAllEggs().find((egg) => egg.id === id) ?? eggs[0];
 }
 
 export function defaultEggVariables(egg: EggDefinition) {
