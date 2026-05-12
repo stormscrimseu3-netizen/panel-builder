@@ -120,7 +120,11 @@ prompt_required() {
 # ============================================================
 install_panel() {
   say "=== Installing Nebula Panel ==="
-  apt_install curl git ca-certificates ufw nginx certbot python3-certbot-nginx
+  if [[ "$SANDBOX" == "1" ]]; then
+    apt_install curl git ca-certificates nginx || warn "apt failed (sandbox FS) — continuing."
+  else
+    apt_install curl git ca-certificates ufw nginx certbot python3-certbot-nginx
+  fi
   install_node
 
   echo
