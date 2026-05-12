@@ -228,9 +228,28 @@ NGINX
     echo "      SSL/TLS mode: Full (strict) recommended"
     warn "Skipping certbot — Cloudflare provides public TLS."
   else
-    say "Issuing TLS certificate via Let's Encrypt..."
-    certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect || \
-      warn "certbot failed — re-run after DNS propagates: certbot --nginx -d $DOMAIN"
+    echo
+    warn "Create the A record above at your DNS provider NOW."
+    warn "Let's Encrypt will fail if $DOMAIN doesn't already resolve to $IP."
+    ask "Press ENTER once the DNS record is created (or type 'skip' to skip TLS):"
+    read -r DNS_READY || DNS_READY=""
+    if [[ "$DNS_READY" == "skip" ]]; then
+      warn "Skipping TLS. Re-run later: certbot --nginx -d $DOMAIN"
+    else
+      # Wait briefly for propagation; poll up to ~2 min.
+      say "Checking DNS for $DOMAIN..."
+      for i in $(seq 1 24); do
+        RESOLVED=$(getent hosts "$DOMAIN" | awk '{print $1}' | head -n1)
+        if [[ "$RESOLVED" == "$IP" ]]; then
+          say "DNS resolves to $IP ✓"; break
+        fi
+        [[ $i -eq 24 ]] && warn "DNS still doesn't match ($RESOLVED vs $IP) — trying certbot anyway."
+        sleep 5
+      done
+      say "Issuing TLS certificate via Let's Encrypt..."
+      certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect || \
+        warn "certbot failed — re-run after DNS propagates: certbot --nginx -d $DOMAIN"
+    fi
   fi
   echo
   say "Visit:  https://$DOMAIN"
