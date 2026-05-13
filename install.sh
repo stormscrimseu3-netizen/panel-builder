@@ -145,16 +145,25 @@ prompt_required() {
 install_panel() {
   say "=== Installing Nebula Panel ==="
   if [[ "$SANDBOX" == "1" ]]; then
-    apt_install curl git ca-certificates nginx || warn "apt failed (sandbox FS) — continuing."
+    apt_install curl git ca-certificates || warn "apt failed (sandbox FS) — continuing."
   else
     apt_install curl git ca-certificates ufw nginx certbot python3-certbot-nginx
   fi
   install_node
 
   echo
-  prompt_required DOMAIN "Public domain for the panel (e.g. panel.example.com)"
+  if [[ "$SANDBOX" == "1" ]]; then
+    DOMAIN="localhost"
+    say "Sandbox mode: no DNS/domain is needed. Open forwarded port 3535 after install."
+  else
+    prompt_required DOMAIN "Public domain for the panel (e.g. panel.example.com)"
+  fi
   prompt PANEL_NAME "Panel display name" "NebulaPanel"
-  prompt CF "Use Cloudflare proxy in front of this server? (y/N)" "N"
+  if [[ "$SANDBOX" == "1" ]]; then
+    CF="N"
+  else
+    prompt CF "Use Cloudflare proxy in front of this server? (y/N)" "N"
+  fi
 
   # Defaults point at the hosted Lovable Cloud project that ships with the panel.
   # Press ENTER to accept — only override if you've forked the panel onto your
@@ -180,6 +189,7 @@ install_panel() {
   git clone --depth 1 "$REPO_GIT" /opt/nebula-panel
   cd /opt/nebula-panel
 
+  PANEL_HOST="$(listen_host)"
   cat > .env <<EOF
 VITE_SUPABASE_URL=$SUPA_URL
 VITE_SUPABASE_PUBLISHABLE_KEY=$SUPA_PUB
@@ -190,6 +200,7 @@ SUPABASE_SERVICE_ROLE_KEY=$SUPA_SR
 SUPABASE_PROJECT_ID=$SUPA_PID
 VITE_PANEL_NAME=$PANEL_NAME
 PORT=3535
+HOST=$PANEL_HOST
 EOF
   chmod 600 .env
 
