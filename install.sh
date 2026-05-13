@@ -210,12 +210,8 @@ EOF
   npm run build
 
   if [[ "$SANDBOX" == "1" ]]; then
-    say "Sandbox mode — starting panel with nohup (no systemd)..."
-    pkill -f '.output/server/index.mjs' 2>/dev/null || true
-    set -a; . /opt/nebula-panel/.env; set +a
-    nohup /usr/bin/node .output/server/index.mjs >/var/log/nebula-panel.log 2>&1 &
-    echo $! >/var/run/nebula-panel.pid
-    sleep 2
+    say "Sandbox mode — starting panel directly on 0.0.0.0:3535 (no nginx/systemd)..."
+    start_panel_process
   else
     say "Creating systemd service..."
     cat >/etc/systemd/system/nebula-panel.service <<UNIT
@@ -236,10 +232,13 @@ WantedBy=multi-user.target
 UNIT
     systemctl daemon-reload
     systemctl enable --now nebula-panel
+    sleep 3
+    systemctl is-active --quiet nebula-panel || { journalctl -u nebula-panel -n 60 --no-pager || true; die "Panel service failed to start."; }
   fi
 
-  say "Configuring nginx for $DOMAIN..."
-  cat >/etc/nginx/sites-available/nebula-panel <<NGINX
+  if [[ "$SANDBOX" == "0" ]]; then
+    say "Configuring nginx for $DOMAIN..."
+    cat >/etc/nginx/sites-available/nebula-panel <<NGINX
 server {
     listen 80;
     server_name $DOMAIN;
@@ -257,12 +256,9 @@ server {
     }
 }
 NGINX
-  ln -sf /etc/nginx/sites-available/nebula-panel /etc/nginx/sites-enabled/nebula-panel
-  rm -f /etc/nginx/sites-enabled/default
-  nginx -t
-  if [[ "$SANDBOX" == "1" ]]; then
-    service nginx restart 2>/dev/null || nginx -s reload 2>/dev/null || nginx
-  else
+    ln -sf /etc/nginx/sites-available/nebula-panel /etc/nginx/sites-enabled/nebula-panel
+    rm -f /etc/nginx/sites-enabled/default
+    nginx -t
     systemctl reload nginx
     ufw allow 80/tcp >/dev/null 2>&1 || true
     ufw allow 443/tcp >/dev/null 2>&1 || true
