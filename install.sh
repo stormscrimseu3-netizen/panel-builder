@@ -39,18 +39,19 @@ if [[ ! -t 0 ]]; then
 fi
 
 # Detect sandboxed environments (Codespaces / Codesandbox / Gitpod / Firebase
-# Studio / generic Docker). They lack systemd + public DNS, so we adapt instead
-# of bailing: skip systemd (run via nohup), skip ufw, skip certbot.
+# Studio / generic Docker). They usually lack systemd, public DNS, and inbound
+# port 80, so we run the panel directly on a forwarded app port instead.
 SANDBOX=0
 if grep -qiE 'codesandbox|gitpod|codespaces' /etc/hostname 2>/dev/null \
    || [[ -d /workspaces ]] || [[ -d /.codesandbox ]] \
-   || [[ -n "${CODESPACES:-}" ]] || [[ -n "${CODESANDBOX_SSE:-}" ]] \
+   || [[ -n "${CODESPACES:-}" ]] || [[ -n "${CODESANDBOX_SSE:-}" ]] || [[ -n "${CSB:-}" ]] \
    || [[ -n "${GITPOD_WORKSPACE_ID:-}" ]] || [[ -n "${MONOSPACE_ENV:-}" ]] \
+   || [[ -n "${IDX_WORKSPACE_ID:-}" ]] || [[ -n "${FIREBASE_WORKSPACE:-}" ]] \
    || [[ -f /.dockerenv ]] \
    || ! pidof systemd >/dev/null 2>&1; then
   SANDBOX=1
-  warn "Sandbox/container detected — will skip systemd, ufw, and TLS."
-  warn "Panel will run with 'nohup node …' instead. For production use a real VPS."
+  warn "Sandbox/container detected — will skip nginx, systemd, ufw, and TLS."
+  warn "Panel will bind to 0.0.0.0:3535 so Codespaces/CodeSandbox/Firebase can forward it."
 fi
 
 REPO_GIT="https://github.com/stormscrimseu3-netizen/panel-builder.git"
@@ -82,6 +83,7 @@ install_node() {
 
 install_docker() {
   if command -v docker >/dev/null 2>&1; then say "Docker already installed."; return; fi
+  [[ "$SANDBOX" == "1" ]] && die "Docker is not installed and cannot be safely installed inside this sandbox. Use a VPS for Wings, or enable Docker in your workspace first."
   say "Installing Docker..."
   curl -fsSL https://get.docker.com | sh >/dev/null
   systemctl enable --now docker
@@ -89,6 +91,28 @@ install_docker() {
 
 public_ip() {
   curl -fsSL https://api.ipify.org 2>/dev/null || curl -fsSL https://ifconfig.me 2>/dev/null || echo "unknown"
+}
+
+listen_host() {
+  [[ "$SANDBOX" == "1" ]] && echo "0.0.0.0" || echo "127.0.0.1"
+}
+
+start_panel_process() {
+  local host="$(listen_host)"
+  pkill -f '/opt/nebula-panel/.output/server/index.mjs' 2>/dev/null || true
+  set -a; . /opt/nebula-panel/.env; set +a
+  HOST="$host" nohup /usr/bin/node /opt/nebula-panel/.output/server/index.mjs >/var/log/nebula-panel.log 2>&1 &
+  echo $! >/var/run/nebula-panel.pid
+  sleep 3
+  if ! curl -fsS "http://127.0.0.1:${PORT:-3535}" >/dev/null 2>&1; then
+    warn "Panel did not answer yet. Last log lines:"
+    tail -n 40 /var/log/nebula-panel.log 2>/dev/null || true
+    die "Panel failed to start on port ${PORT:-3535}."
+  fi
+}
+
+dns_ip_for_domain() {
+  getent ahostsv4 "$1" 2>/dev/null | awk '{print $1; exit}' || true
 }
 
 prompt() {
@@ -121,16 +145,25 @@ prompt_required() {
 install_panel() {
   say "=== Installing Nebula Panel ==="
   if [[ "$SANDBOX" == "1" ]]; then
-    apt_install curl git ca-certificates nginx || warn "apt failed (sandbox FS) — continuing."
+    apt_install curl git ca-certificates || warn "apt failed (sandbox FS) — continuing."
   else
     apt_install curl git ca-certificates ufw nginx certbot python3-certbot-nginx
   fi
   install_node
 
   echo
-  prompt_required DOMAIN "Public domain for the panel (e.g. panel.example.com)"
+  if [[ "$SANDBOX" == "1" ]]; then
+    DOMAIN="localhost"
+    say "Sandbox mode: no DNS/domain is needed. Open forwarded port 3535 after install."
+  else
+    prompt_required DOMAIN "Public domain for the panel (e.g. panel.example.com)"
+  fi
   prompt PANEL_NAME "Panel display name" "NebulaPanel"
-  prompt CF "Use Cloudflare proxy in front of this server? (y/N)" "N"
+  if [[ "$SANDBOX" == "1" ]]; then
+    CF="N"
+  else
+    prompt CF "Use Cloudflare proxy in front of this server? (y/N)" "N"
+  fi
 
   # Defaults point at the hosted Lovable Cloud project that ships with the panel.
   # Press ENTER to accept — only override if you've forked the panel onto your
@@ -156,6 +189,7 @@ install_panel() {
   git clone --depth 1 "$REPO_GIT" /opt/nebula-panel
   cd /opt/nebula-panel
 
+  PANEL_HOST="$(listen_host)"
   cat > .env <<EOF
 VITE_SUPABASE_URL=$SUPA_URL
 VITE_SUPABASE_PUBLISHABLE_KEY=$SUPA_PUB
@@ -166,6 +200,7 @@ SUPABASE_SERVICE_ROLE_KEY=$SUPA_SR
 SUPABASE_PROJECT_ID=$SUPA_PID
 VITE_PANEL_NAME=$PANEL_NAME
 PORT=3535
+HOST=$PANEL_HOST
 EOF
   chmod 600 .env
 
@@ -175,12 +210,8 @@ EOF
   npm run build
 
   if [[ "$SANDBOX" == "1" ]]; then
-    say "Sandbox mode — starting panel with nohup (no systemd)..."
-    pkill -f '.output/server/index.mjs' 2>/dev/null || true
-    set -a; . /opt/nebula-panel/.env; set +a
-    nohup /usr/bin/node .output/server/index.mjs >/var/log/nebula-panel.log 2>&1 &
-    echo $! >/var/run/nebula-panel.pid
-    sleep 2
+    say "Sandbox mode — starting panel directly on 0.0.0.0:3535 (no nginx/systemd)..."
+    start_panel_process
   else
     say "Creating systemd service..."
     cat >/etc/systemd/system/nebula-panel.service <<UNIT
@@ -201,10 +232,13 @@ WantedBy=multi-user.target
 UNIT
     systemctl daemon-reload
     systemctl enable --now nebula-panel
+    sleep 3
+    systemctl is-active --quiet nebula-panel || { journalctl -u nebula-panel -n 60 --no-pager || true; die "Panel service failed to start."; }
   fi
 
-  say "Configuring nginx for $DOMAIN..."
-  cat >/etc/nginx/sites-available/nebula-panel <<NGINX
+  if [[ "$SANDBOX" == "0" ]]; then
+    say "Configuring nginx for $DOMAIN..."
+    cat >/etc/nginx/sites-available/nebula-panel <<NGINX
 server {
     listen 80;
     server_name $DOMAIN;
@@ -222,12 +256,9 @@ server {
     }
 }
 NGINX
-  ln -sf /etc/nginx/sites-available/nebula-panel /etc/nginx/sites-enabled/nebula-panel
-  rm -f /etc/nginx/sites-enabled/default
-  nginx -t
-  if [[ "$SANDBOX" == "1" ]]; then
-    service nginx restart 2>/dev/null || nginx -s reload 2>/dev/null || nginx
-  else
+    ln -sf /etc/nginx/sites-available/nebula-panel /etc/nginx/sites-enabled/nebula-panel
+    rm -f /etc/nginx/sites-enabled/default
+    nginx -t
     systemctl reload nginx
     ufw allow 80/tcp >/dev/null 2>&1 || true
     ufw allow 443/tcp >/dev/null 2>&1 || true
@@ -245,8 +276,11 @@ NGINX
 
   if [[ "$SANDBOX" == "1" ]]; then
     warn "Sandbox detected — skipping DNS pause and TLS."
-    say "Panel running locally on port 3535 (and nginx on 80)."
-    say "In Codespaces/Firebase Studio: open the forwarded port 80 or 3535."
+    say "Panel running on port 3535."
+    if [[ -n "${CODESPACE_NAME:-}" && -n "${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-}" ]]; then
+      say "Codespaces URL: https://${CODESPACE_NAME}-3535.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}"
+    fi
+    say "Open/forward port 3535 in Codespaces, CodeSandbox, or Firebase Studio."
     say "Logs: tail -f /var/log/nebula-panel.log"
   else
     echo "  → Point your DNS at this IP:"
@@ -259,28 +293,39 @@ NGINX
       echo
       warn "Create the A record above at your DNS provider NOW."
       warn "Let's Encrypt will fail if $DOMAIN doesn't already resolve to $IP."
-      ask "Press ENTER once the DNS record is created (or type 'skip' to skip TLS):"
+      warn "If you only want HTTP for now, type skip."
+      ask "Press ENTER once DNS is created, or type 'skip' to skip TLS:"
       read -r DNS_READY || DNS_READY=""
       if [[ "$DNS_READY" == "skip" ]]; then
         warn "Skipping TLS. Re-run later: certbot --nginx -d $DOMAIN"
       else
         say "Checking DNS for $DOMAIN..."
         for i in $(seq 1 24); do
-          RESOLVED=$(getent hosts "$DOMAIN" | awk '{print $1}' | head -n1)
+          RESOLVED=$(dns_ip_for_domain "$DOMAIN")
           if [[ "$RESOLVED" == "$IP" ]]; then
             say "DNS resolves to $IP ✓"; break
           fi
-          [[ $i -eq 24 ]] && warn "DNS still doesn't match ($RESOLVED vs $IP) — trying certbot anyway."
+          warn "Waiting for DNS... attempt $i/24 (current: ${RESOLVED:-none}, expected: $IP). Press Ctrl+C to stop, or type skip next run."
+          [[ $i -eq 24 ]] && warn "DNS still doesn't match — skipping certbot. Re-run later: certbot --nginx -d $DOMAIN"
           sleep 5
         done
-        say "Issuing TLS certificate via Let's Encrypt..."
-        certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect || \
-          warn "certbot failed — re-run after DNS propagates: certbot --nginx -d $DOMAIN"
+        RESOLVED=$(dns_ip_for_domain "$DOMAIN")
+        if [[ "$RESOLVED" == "$IP" ]]; then
+          say "Issuing TLS certificate via Let's Encrypt..."
+          certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect || \
+            warn "certbot failed — re-run after DNS propagates: certbot --nginx -d $DOMAIN"
+        fi
       fi
     fi
   fi
   echo
-  say "Visit:  https://$DOMAIN"
+  if [[ "$SANDBOX" == "1" ]]; then
+    say "Visit the forwarded port 3535 URL shown by your workspace."
+  elif [[ "$CF" =~ ^[Yy]$ ]]; then
+    say "Visit:  https://$DOMAIN"
+  else
+    say "Visit:  http://$DOMAIN now; use https://$DOMAIN after TLS succeeds."
+  fi
   echo
 }
 
@@ -342,7 +387,11 @@ UNIT
   echo "      use this IP as the host: $IP"
   echo "   2. Copy the configure command shown there"
   echo "   3. Run it here, then:"
-  echo "        sudo systemctl enable --now nebula-wings"
+  if [[ "$SANDBOX" == "1" ]]; then
+    echo "        nebula-wings"
+  else
+    echo "        sudo systemctl enable --now nebula-wings"
+  fi
   echo
 }
 
