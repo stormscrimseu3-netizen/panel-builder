@@ -39,18 +39,19 @@ if [[ ! -t 0 ]]; then
 fi
 
 # Detect sandboxed environments (Codespaces / Codesandbox / Gitpod / Firebase
-# Studio / generic Docker). They lack systemd + public DNS, so we adapt instead
-# of bailing: skip systemd (run via nohup), skip ufw, skip certbot.
+# Studio / generic Docker). They usually lack systemd, public DNS, and inbound
+# port 80, so we run the panel directly on a forwarded app port instead.
 SANDBOX=0
 if grep -qiE 'codesandbox|gitpod|codespaces' /etc/hostname 2>/dev/null \
    || [[ -d /workspaces ]] || [[ -d /.codesandbox ]] \
-   || [[ -n "${CODESPACES:-}" ]] || [[ -n "${CODESANDBOX_SSE:-}" ]] \
+   || [[ -n "${CODESPACES:-}" ]] || [[ -n "${CODESANDBOX_SSE:-}" ]] || [[ -n "${CSB:-}" ]] \
    || [[ -n "${GITPOD_WORKSPACE_ID:-}" ]] || [[ -n "${MONOSPACE_ENV:-}" ]] \
+   || [[ -n "${IDX_WORKSPACE_ID:-}" ]] || [[ -n "${FIREBASE_WORKSPACE:-}" ]] \
    || [[ -f /.dockerenv ]] \
    || ! pidof systemd >/dev/null 2>&1; then
   SANDBOX=1
-  warn "Sandbox/container detected — will skip systemd, ufw, and TLS."
-  warn "Panel will run with 'nohup node …' instead. For production use a real VPS."
+  warn "Sandbox/container detected — will skip nginx, systemd, ufw, and TLS."
+  warn "Panel will bind to 0.0.0.0:3535 so Codespaces/CodeSandbox/Firebase can forward it."
 fi
 
 REPO_GIT="https://github.com/stormscrimseu3-netizen/panel-builder.git"
