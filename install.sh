@@ -387,7 +387,11 @@ UNIT
   echo "      use this IP as the host: $IP"
   echo "   2. Copy the configure command shown there"
   echo "   3. Run it here, then:"
-  echo "        sudo systemctl enable --now nebula-wings"
+  if [[ "$SANDBOX" == "1" ]]; then
+    echo "        nebula-wings"
+  else
+    echo "        sudo systemctl enable --now nebula-wings"
+  fi
   echo
 }
 
