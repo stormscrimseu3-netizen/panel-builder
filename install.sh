@@ -276,8 +276,11 @@ NGINX
 
   if [[ "$SANDBOX" == "1" ]]; then
     warn "Sandbox detected — skipping DNS pause and TLS."
-    say "Panel running locally on port 3535 (and nginx on 80)."
-    say "In Codespaces/Firebase Studio: open the forwarded port 80 or 3535."
+    say "Panel running on port 3535."
+    if [[ -n "${CODESPACE_NAME:-}" && -n "${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-}" ]]; then
+      say "Codespaces URL: https://${CODESPACE_NAME}-3535.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}"
+    fi
+    say "Open/forward port 3535 in Codespaces, CodeSandbox, or Firebase Studio."
     say "Logs: tail -f /var/log/nebula-panel.log"
   else
     echo "  → Point your DNS at this IP:"
@@ -290,28 +293,39 @@ NGINX
       echo
       warn "Create the A record above at your DNS provider NOW."
       warn "Let's Encrypt will fail if $DOMAIN doesn't already resolve to $IP."
-      ask "Press ENTER once the DNS record is created (or type 'skip' to skip TLS):"
+      warn "If you only want HTTP for now, type skip."
+      ask "Press ENTER once DNS is created, or type 'skip' to skip TLS:"
       read -r DNS_READY || DNS_READY=""
       if [[ "$DNS_READY" == "skip" ]]; then
         warn "Skipping TLS. Re-run later: certbot --nginx -d $DOMAIN"
       else
         say "Checking DNS for $DOMAIN..."
         for i in $(seq 1 24); do
-          RESOLVED=$(getent hosts "$DOMAIN" | awk '{print $1}' | head -n1)
+          RESOLVED=$(dns_ip_for_domain "$DOMAIN")
           if [[ "$RESOLVED" == "$IP" ]]; then
             say "DNS resolves to $IP ✓"; break
           fi
-          [[ $i -eq 24 ]] && warn "DNS still doesn't match ($RESOLVED vs $IP) — trying certbot anyway."
+          warn "Waiting for DNS... attempt $i/24 (current: ${RESOLVED:-none}, expected: $IP). Press Ctrl+C to stop, or type skip next run."
+          [[ $i -eq 24 ]] && warn "DNS still doesn't match — skipping certbot. Re-run later: certbot --nginx -d $DOMAIN"
           sleep 5
         done
-        say "Issuing TLS certificate via Let's Encrypt..."
-        certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect || \
-          warn "certbot failed — re-run after DNS propagates: certbot --nginx -d $DOMAIN"
+        RESOLVED=$(dns_ip_for_domain "$DOMAIN")
+        if [[ "$RESOLVED" == "$IP" ]]; then
+          say "Issuing TLS certificate via Let's Encrypt..."
+          certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect || \
+            warn "certbot failed — re-run after DNS propagates: certbot --nginx -d $DOMAIN"
+        fi
       fi
     fi
   fi
   echo
-  say "Visit:  https://$DOMAIN"
+  if [[ "$SANDBOX" == "1" ]]; then
+    say "Visit the forwarded port 3535 URL shown by your workspace."
+  elif [[ "$CF" =~ ^[Yy]$ ]]; then
+    say "Visit:  https://$DOMAIN"
+  else
+    say "Visit:  http://$DOMAIN now; use https://$DOMAIN after TLS succeeds."
+  fi
   echo
 }
 
