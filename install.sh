@@ -83,6 +83,7 @@ install_node() {
 
 install_docker() {
   if command -v docker >/dev/null 2>&1; then say "Docker already installed."; return; fi
+  [[ "$SANDBOX" == "1" ]] && die "Docker is not installed and cannot be safely installed inside this sandbox. Use a VPS for Wings, or enable Docker in your workspace first."
   say "Installing Docker..."
   curl -fsSL https://get.docker.com | sh >/dev/null
   systemctl enable --now docker
@@ -90,6 +91,28 @@ install_docker() {
 
 public_ip() {
   curl -fsSL https://api.ipify.org 2>/dev/null || curl -fsSL https://ifconfig.me 2>/dev/null || echo "unknown"
+}
+
+listen_host() {
+  [[ "$SANDBOX" == "1" ]] && echo "0.0.0.0" || echo "127.0.0.1"
+}
+
+start_panel_process() {
+  local host="$(listen_host)"
+  pkill -f '/opt/nebula-panel/.output/server/index.mjs' 2>/dev/null || true
+  set -a; . /opt/nebula-panel/.env; set +a
+  HOST="$host" nohup /usr/bin/node /opt/nebula-panel/.output/server/index.mjs >/var/log/nebula-panel.log 2>&1 &
+  echo $! >/var/run/nebula-panel.pid
+  sleep 3
+  if ! curl -fsS "http://127.0.0.1:${PORT:-3535}" >/dev/null 2>&1; then
+    warn "Panel did not answer yet. Last log lines:"
+    tail -n 40 /var/log/nebula-panel.log 2>/dev/null || true
+    die "Panel failed to start on port ${PORT:-3535}."
+  fi
+}
+
+dns_ip_for_domain() {
+  getent ahostsv4 "$1" 2>/dev/null | awk '{print $1; exit}' || true
 }
 
 prompt() {
