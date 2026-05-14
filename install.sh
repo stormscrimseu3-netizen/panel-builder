@@ -118,7 +118,7 @@ PORT="${PORT:-3535}"
 # target. Prefer Vite preview for this installer because it always opens an HTTP
 # listener for the built app; keep direct Node entries as a fallback.
 if [[ -f node_modules/vite/bin/vite.js ]]; then
-  exec /usr/bin/env npm run preview -- --host "$HOST" --port "$PORT"
+  exec /usr/bin/env npm run preview -- --host "$HOST" --port "$PORT" --strictPort
 fi
 
 for entry in dist/server/server.js dist/server/index.js dist/server/index.mjs .output/server/index.mjs .output/server/server.js; do
@@ -290,7 +290,7 @@ EOF
   chmod 600 .env
 
   say "Installing dependencies (this takes a minute)..."
-  npm install --silent
+  npm install --include=dev --silent
   say "Building panel..."
   npm run build
   write_panel_start_script
