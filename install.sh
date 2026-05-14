@@ -96,7 +96,9 @@ install_docker() {
 }
 
 public_ip() {
-  curl -fsSL https://api.ipify.org 2>/dev/null || curl -fsSL https://ifconfig.me 2>/dev/null || echo "unknown"
+  curl -fsSL --connect-timeout 5 --max-time 10 https://api.ipify.org 2>/dev/null \
+    || curl -fsSL --connect-timeout 5 --max-time 10 https://ifconfig.me 2>/dev/null \
+    || echo "unknown"
 }
 
 listen_host() {
