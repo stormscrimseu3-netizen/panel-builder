@@ -103,18 +103,47 @@ listen_host() {
   [[ "$SANDBOX" == "1" ]] && echo "0.0.0.0" || echo "127.0.0.1"
 }
 
+write_panel_start_script() {
+  cat >/opt/nebula-panel/start.sh <<'START'
+#!/usr/bin/env bash
+set -euo pipefail
+cd /opt/nebula-panel
+set -a; [[ -f .env ]] && . ./.env; set +a
+HOST="${HOST:-127.0.0.1}"
+PORT="${PORT:-3535}"
+
+# This TanStack/Vite build can output different server paths depending on the
+# target. Prefer Vite preview for this installer because it always opens an HTTP
+# listener for the built app; keep direct Node entries as a fallback.
+if [[ -f node_modules/vite/bin/vite.js ]]; then
+  exec /usr/bin/env npm run preview -- --host "$HOST" --port "$PORT"
+fi
+
+for entry in dist/server/server.js dist/server/index.js dist/server/index.mjs .output/server/index.mjs .output/server/server.js; do
+  if [[ -f "$entry" ]]; then
+    exec /usr/bin/env node "$entry"
+  fi
+done
+
+echo "Could not find a runnable panel server. Build outputs:" >&2
+find dist .output -maxdepth 3 -type f 2>/dev/null | sed 's/^/  /' >&2 || true
+exit 1
+START
+  chmod +x /opt/nebula-panel/start.sh
+}
+
 start_panel_process() {
   local host="$(listen_host)"
-  pkill -f '/opt/nebula-panel/.output/server/index.mjs' 2>/dev/null || true
-  set -a; . /opt/nebula-panel/.env; set +a
-  HOST="$host" nohup /usr/bin/node /opt/nebula-panel/.output/server/index.mjs >/var/log/nebula-panel.log 2>&1 &
+  pkill -f '/opt/nebula-panel/start.sh|vite preview|/opt/nebula-panel/.output/server|/opt/nebula-panel/dist/server' 2>/dev/null || true
+  HOST="$host" nohup /opt/nebula-panel/start.sh >/var/log/nebula-panel.log 2>&1 &
   echo $! >/var/run/nebula-panel.pid
-  sleep 3
-  if ! curl -fsS "http://127.0.0.1:${PORT:-3535}" >/dev/null 2>&1; then
-    warn "Panel did not answer yet. Last log lines:"
-    tail -n 40 /var/log/nebula-panel.log 2>/dev/null || true
-    die "Panel failed to start on port ${PORT:-3535}."
-  fi
+  for i in $(seq 1 30); do
+    curl -fsS "http://127.0.0.1:${PORT:-3535}" >/dev/null 2>&1 && return
+    sleep 1
+  done
+  warn "Panel did not answer yet. Last log lines:"
+  tail -n 60 /var/log/nebula-panel.log 2>/dev/null || true
+  die "Panel failed to start on port ${PORT:-3535}."
 }
 
 dns_ip_for_domain() {
