@@ -43,9 +43,9 @@ fi
 # port 80, so we run the panel directly on a forwarded app port instead.
 SANDBOX=0
 SANDBOX_NAME="VPS"
-if [[ -n "${CODESPACES:-}" ]] || [[ -n "${CODESPACE_NAME:-}" ]] || grep -qi 'codespaces' /etc/hostname 2>/dev/null; then
+if [[ -n "${CODESPACES:-}" ]] || [[ -n "${CODESPACE_NAME:-}" ]] || grep -qi 'codespaces' /etc/hostname /proc/1/cgroup 2>/dev/null; then
   SANDBOX=1; SANDBOX_NAME="GitHub Codespaces"
-elif [[ -n "${CODESANDBOX_SSE:-}" ]] || [[ -n "${CSB:-}" ]] || [[ -n "${SANDBOX_ID:-}" ]] || grep -qi 'codesandbox' /etc/hostname 2>/dev/null || [[ -d /.codesandbox ]]; then
+elif [[ -n "${CODESANDBOX_SSE:-}" ]] || [[ -n "${CSB:-}" ]] || [[ -n "${SANDBOX_ID:-}" ]] || grep -qi 'codesandbox' /etc/hostname /proc/1/cgroup 2>/dev/null || [[ -d /.codesandbox ]] || [[ -d .codesandbox ]]; then
   SANDBOX=1; SANDBOX_NAME="CodeSandbox"
 elif [[ -n "${MONOSPACE_ENV:-}" ]] || [[ -n "${IDX_WORKSPACE_ID:-}" ]] || [[ -n "${FIREBASE_WORKSPACE:-}" ]]; then
   SANDBOX=1; SANDBOX_NAME="Firebase Studio"
