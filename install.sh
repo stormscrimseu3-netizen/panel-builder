@@ -42,16 +42,22 @@ fi
 # Studio / generic Docker). They usually lack systemd, public DNS, and inbound
 # port 80, so we run the panel directly on a forwarded app port instead.
 SANDBOX=0
-if grep -qiE 'codesandbox|gitpod|codespaces' /etc/hostname 2>/dev/null \
-   || [[ -d /workspaces ]] || [[ -d /.codesandbox ]] \
-   || [[ -n "${CODESPACES:-}" ]] || [[ -n "${CODESANDBOX_SSE:-}" ]] || [[ -n "${CSB:-}" ]] \
-   || [[ -n "${GITPOD_WORKSPACE_ID:-}" ]] || [[ -n "${MONOSPACE_ENV:-}" ]] \
-   || [[ -n "${IDX_WORKSPACE_ID:-}" ]] || [[ -n "${FIREBASE_WORKSPACE:-}" ]] \
-   || [[ -f /.dockerenv ]] \
-   || ! pidof systemd >/dev/null 2>&1; then
-  SANDBOX=1
-  warn "Sandbox/container detected — will skip nginx, systemd, ufw, and TLS."
-  warn "Panel will bind to 0.0.0.0:3535 so Codespaces/CodeSandbox/Firebase can forward it."
+SANDBOX_NAME="VPS"
+if [[ -n "${CODESPACES:-}" ]] || [[ -n "${CODESPACE_NAME:-}" ]] || grep -qi 'codespaces' /etc/hostname /proc/1/cgroup 2>/dev/null; then
+  SANDBOX=1; SANDBOX_NAME="GitHub Codespaces"
+elif [[ -n "${CODESANDBOX_SSE:-}" ]] || [[ -n "${CSB:-}" ]] || [[ -n "${SANDBOX_ID:-}" ]] || grep -qi 'codesandbox' /etc/hostname /proc/1/cgroup 2>/dev/null || [[ -d /.codesandbox ]]; then
+  SANDBOX=1; SANDBOX_NAME="CodeSandbox"
+elif [[ -n "${MONOSPACE_ENV:-}" ]] || [[ -n "${IDX_WORKSPACE_ID:-}" ]] || [[ -n "${FIREBASE_WORKSPACE:-}" ]]; then
+  SANDBOX=1; SANDBOX_NAME="Firebase Studio"
+elif [[ -n "${GITPOD_WORKSPACE_ID:-}" ]] || grep -qi 'gitpod' /etc/hostname 2>/dev/null; then
+  SANDBOX=1; SANDBOX_NAME="Gitpod"
+elif [[ -d /workspaces ]] || [[ -f /.dockerenv ]] || ! pidof systemd >/dev/null 2>&1; then
+  SANDBOX=1; SANDBOX_NAME="container/no-systemd environment"
+fi
+
+if [[ "$SANDBOX" == "1" ]]; then
+  warn "$SANDBOX_NAME detected — will skip nginx, systemd, ufw, and TLS."
+  warn "Panel will bind to 0.0.0.0:3535 so your workspace can forward it."
 fi
 
 REPO_GIT="https://github.com/stormscrimseu3-netizen/panel-builder.git"
@@ -90,29 +96,108 @@ install_docker() {
 }
 
 public_ip() {
-  curl -fsSL https://api.ipify.org 2>/dev/null || curl -fsSL https://ifconfig.me 2>/dev/null || echo "unknown"
+  curl -fsSL --connect-timeout 5 --max-time 10 https://api.ipify.org 2>/dev/null \
+    || curl -fsSL --connect-timeout 5 --max-time 10 https://ifconfig.me 2>/dev/null \
+    || echo "unknown"
 }
 
 listen_host() {
   [[ "$SANDBOX" == "1" ]] && echo "0.0.0.0" || echo "127.0.0.1"
 }
 
+write_panel_start_script() {
+  cat >/opt/nebula-panel/start.sh <<'START'
+#!/usr/bin/env bash
+set -euo pipefail
+cd /opt/nebula-panel
+set -a; [[ -f .env ]] && . ./.env; set +a
+HOST="${HOST:-127.0.0.1}"
+PORT="${PORT:-3535}"
+
+# This TanStack/Vite build can output different server paths depending on the
+# target. Prefer Vite preview for this installer because it always opens an HTTP
+# listener for the built app; keep direct Node entries as a fallback.
+if [[ -f node_modules/vite/bin/vite.js ]]; then
+  exec /usr/bin/env npm run preview -- --host "$HOST" --port "$PORT" --strictPort
+fi
+
+for entry in dist/server/server.js dist/server/index.js dist/server/index.mjs .output/server/index.mjs .output/server/server.js; do
+  if [[ -f "$entry" ]]; then
+    exec /usr/bin/env node "$entry"
+  fi
+done
+
+echo "Could not find a runnable panel server. Build outputs:" >&2
+find dist .output -maxdepth 3 -type f 2>/dev/null | sed 's/^/  /' >&2 || true
+exit 1
+START
+  chmod +x /opt/nebula-panel/start.sh
+}
+
 start_panel_process() {
   local host="$(listen_host)"
-  pkill -f '/opt/nebula-panel/.output/server/index.mjs' 2>/dev/null || true
-  set -a; . /opt/nebula-panel/.env; set +a
-  HOST="$host" nohup /usr/bin/node /opt/nebula-panel/.output/server/index.mjs >/var/log/nebula-panel.log 2>&1 &
+  pkill -f '/opt/nebula-panel/start.sh|vite preview|/opt/nebula-panel/.output/server|/opt/nebula-panel/dist/server' 2>/dev/null || true
+  HOST="$host" nohup /opt/nebula-panel/start.sh >/var/log/nebula-panel.log 2>&1 &
   echo $! >/var/run/nebula-panel.pid
-  sleep 3
-  if ! curl -fsS "http://127.0.0.1:${PORT:-3535}" >/dev/null 2>&1; then
-    warn "Panel did not answer yet. Last log lines:"
-    tail -n 40 /var/log/nebula-panel.log 2>/dev/null || true
-    die "Panel failed to start on port ${PORT:-3535}."
-  fi
+  for i in $(seq 1 30); do
+    curl -fsS "http://127.0.0.1:${PORT:-3535}" >/dev/null 2>&1 && return
+    sleep 1
+  done
+  warn "Panel did not answer yet. Last log lines:"
+  tail -n 60 /var/log/nebula-panel.log 2>/dev/null || true
+  die "Panel failed to start on port ${PORT:-3535}."
 }
 
 dns_ip_for_domain() {
   getent ahostsv4 "$1" 2>/dev/null | awk '{print $1; exit}' || true
+}
+
+install_tls_retry_job() {
+  local domain="$1" ip="$2"
+  cat >/usr/local/bin/nebula-panel-tls-retry <<'TLSRETRY'
+#!/usr/bin/env bash
+set -euo pipefail
+DOMAIN="${1:?domain required}"
+EXPECTED_IP="${2:?ip required}"
+LOG=/var/log/nebula-panel-tls-retry.log
+
+dns_ip_for_domain() {
+  getent ahostsv4 "$1" 2>/dev/null | awk '{print $1; exit}' || true
+}
+
+for i in $(seq 1 144); do
+  RESOLVED="$(dns_ip_for_domain "$DOMAIN")"
+  if [[ "$RESOLVED" == "$EXPECTED_IP" ]]; then
+    echo "[$(date -Is)] DNS ready for $DOMAIN ($RESOLVED). Requesting TLS..." >>"$LOG"
+    if certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect >>"$LOG" 2>&1; then
+      echo "[$(date -Is)] TLS installed for $DOMAIN" >>"$LOG"
+      exit 0
+    fi
+    echo "[$(date -Is)] certbot failed; retrying" >>"$LOG"
+  else
+    echo "[$(date -Is)] DNS not ready for $DOMAIN (current: ${RESOLVED:-none}, expected: $EXPECTED_IP)" >>"$LOG"
+  fi
+  sleep 300
+done
+
+echo "[$(date -Is)] TLS retry timed out. Run: certbot --nginx -d $DOMAIN" >>"$LOG"
+exit 1
+TLSRETRY
+  chmod +x /usr/local/bin/nebula-panel-tls-retry
+
+  cat >/etc/systemd/system/nebula-panel-tls-retry.service <<UNIT
+[Unit]
+Description=Nebula Panel automatic TLS retry
+After=network-online.target nginx.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/nebula-panel-tls-retry $domain $ip
+UNIT
+
+  systemctl daemon-reload
+  systemctl reset-failed nebula-panel-tls-retry.service >/dev/null 2>&1 || true
+  systemctl start nebula-panel-tls-retry.service >/dev/null 2>&1 &
 }
 
 prompt() {
@@ -205,9 +290,10 @@ EOF
   chmod 600 .env
 
   say "Installing dependencies (this takes a minute)..."
-  npm install --silent
+  npm install --include=dev --silent
   say "Building panel..."
   npm run build
+  write_panel_start_script
 
   if [[ "$SANDBOX" == "1" ]]; then
     say "Sandbox mode — starting panel directly on 0.0.0.0:3535 (no nginx/systemd)..."
@@ -223,7 +309,7 @@ After=network-online.target
 Type=simple
 WorkingDirectory=/opt/nebula-panel
 EnvironmentFile=/opt/nebula-panel/.env
-ExecStart=/usr/bin/node .output/server/index.mjs
+ExecStart=/opt/nebula-panel/start.sh
 Restart=on-failure
 RestartSec=5
 
@@ -275,12 +361,14 @@ NGINX
   echo
 
   if [[ "$SANDBOX" == "1" ]]; then
-    warn "Sandbox detected — skipping DNS pause and TLS."
+    warn "$SANDBOX_NAME detected — skipping DNS pause and TLS."
     say "Panel running on port 3535."
     if [[ -n "${CODESPACE_NAME:-}" && -n "${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-}" ]]; then
       say "Codespaces URL: https://${CODESPACE_NAME}-3535.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}"
+    elif [[ -n "${SANDBOX_ID:-}" ]]; then
+      say "CodeSandbox URL: https://${SANDBOX_ID}-3535.csb.app"
     fi
-    say "Open/forward port 3535 in Codespaces, CodeSandbox, or Firebase Studio."
+    say "Open/forward port 3535 in $SANDBOX_NAME."
     say "Logs: tail -f /var/log/nebula-panel.log"
   else
     echo "  → Point your DNS at this IP:"
@@ -291,30 +379,20 @@ NGINX
       warn "Skipping certbot — Cloudflare provides public TLS."
     else
       echo
-      warn "Create the A record above at your DNS provider NOW."
-      warn "Let's Encrypt will fail if $DOMAIN doesn't already resolve to $IP."
-      warn "If you only want HTTP for now, type skip."
-      ask "Press ENTER once DNS is created, or type 'skip' to skip TLS:"
-      read -r DNS_READY || DNS_READY=""
-      if [[ "$DNS_READY" == "skip" ]]; then
-        warn "Skipping TLS. Re-run later: certbot --nginx -d $DOMAIN"
+      say "HTTP is live now: http://$DOMAIN"
+      warn "Create the A record above whenever you are ready. The installer will NOT wait here."
+      RESOLVED=$(dns_ip_for_domain "$DOMAIN")
+      if [[ "$RESOLVED" == "$IP" ]]; then
+        say "DNS already resolves to $IP — requesting TLS now..."
+        certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect || {
+          warn "certbot failed — starting automatic background TLS retry."
+          install_tls_retry_job "$DOMAIN" "$IP"
+        }
       else
-        say "Checking DNS for $DOMAIN..."
-        for i in $(seq 1 24); do
-          RESOLVED=$(dns_ip_for_domain "$DOMAIN")
-          if [[ "$RESOLVED" == "$IP" ]]; then
-            say "DNS resolves to $IP ✓"; break
-          fi
-          warn "Waiting for DNS... attempt $i/24 (current: ${RESOLVED:-none}, expected: $IP). Press Ctrl+C to stop, or type skip next run."
-          [[ $i -eq 24 ]] && warn "DNS still doesn't match — skipping certbot. Re-run later: certbot --nginx -d $DOMAIN"
-          sleep 5
-        done
-        RESOLVED=$(dns_ip_for_domain "$DOMAIN")
-        if [[ "$RESOLVED" == "$IP" ]]; then
-          say "Issuing TLS certificate via Let's Encrypt..."
-          certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect || \
-            warn "certbot failed — re-run after DNS propagates: certbot --nginx -d $DOMAIN"
-        fi
+        warn "DNS is not ready yet (current: ${RESOLVED:-none}, expected: $IP)."
+        say "Starting automatic background TLS retry. It checks every 5 minutes and enables HTTPS once DNS works."
+        install_tls_retry_job "$DOMAIN" "$IP"
+        say "TLS retry logs: tail -f /var/log/nebula-panel-tls-retry.log"
       fi
     fi
   fi
