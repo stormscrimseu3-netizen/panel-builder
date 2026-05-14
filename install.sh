@@ -43,15 +43,15 @@ fi
 # port 80, so we run the panel directly on a forwarded app port instead.
 SANDBOX=0
 SANDBOX_NAME="VPS"
-if [[ -n "${CODESPACES:-}" ]] || grep -qi 'codespaces' /etc/hostname 2>/dev/null || [[ -d /workspaces ]]; then
+if [[ -n "${CODESPACES:-}" ]] || [[ -n "${CODESPACE_NAME:-}" ]] || grep -qi 'codespaces' /etc/hostname 2>/dev/null; then
   SANDBOX=1; SANDBOX_NAME="GitHub Codespaces"
-elif [[ -n "${CODESANDBOX_SSE:-}" ]] || [[ -n "${CSB:-}" ]] || grep -qi 'codesandbox' /etc/hostname 2>/dev/null || [[ -d /.codesandbox ]]; then
+elif [[ -n "${CODESANDBOX_SSE:-}" ]] || [[ -n "${CSB:-}" ]] || [[ -n "${SANDBOX_ID:-}" ]] || grep -qi 'codesandbox' /etc/hostname 2>/dev/null || [[ -d /.codesandbox ]]; then
   SANDBOX=1; SANDBOX_NAME="CodeSandbox"
 elif [[ -n "${MONOSPACE_ENV:-}" ]] || [[ -n "${IDX_WORKSPACE_ID:-}" ]] || [[ -n "${FIREBASE_WORKSPACE:-}" ]]; then
   SANDBOX=1; SANDBOX_NAME="Firebase Studio"
 elif [[ -n "${GITPOD_WORKSPACE_ID:-}" ]] || grep -qi 'gitpod' /etc/hostname 2>/dev/null; then
   SANDBOX=1; SANDBOX_NAME="Gitpod"
-elif [[ -f /.dockerenv ]] || ! pidof systemd >/dev/null 2>&1; then
+elif [[ -d /workspaces ]] || [[ -f /.dockerenv ]] || ! pidof systemd >/dev/null 2>&1; then
   SANDBOX=1; SANDBOX_NAME="container/no-systemd environment"
 fi
 
