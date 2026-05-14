@@ -150,6 +150,54 @@ dns_ip_for_domain() {
   getent ahostsv4 "$1" 2>/dev/null | awk '{print $1; exit}' || true
 }
 
+install_tls_retry_job() {
+  local domain="$1" ip="$2"
+  cat >/usr/local/bin/nebula-panel-tls-retry <<'TLSRETRY'
+#!/usr/bin/env bash
+set -euo pipefail
+DOMAIN="${1:?domain required}"
+EXPECTED_IP="${2:?ip required}"
+LOG=/var/log/nebula-panel-tls-retry.log
+
+dns_ip_for_domain() {
+  getent ahostsv4 "$1" 2>/dev/null | awk '{print $1; exit}' || true
+}
+
+for i in $(seq 1 144); do
+  RESOLVED="$(dns_ip_for_domain "$DOMAIN")"
+  if [[ "$RESOLVED" == "$EXPECTED_IP" ]]; then
+    echo "[$(date -Is)] DNS ready for $DOMAIN ($RESOLVED). Requesting TLS..." >>"$LOG"
+    if certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect >>"$LOG" 2>&1; then
+      echo "[$(date -Is)] TLS installed for $DOMAIN" >>"$LOG"
+      exit 0
+    fi
+    echo "[$(date -Is)] certbot failed; retrying" >>"$LOG"
+  else
+    echo "[$(date -Is)] DNS not ready for $DOMAIN (current: ${RESOLVED:-none}, expected: $EXPECTED_IP)" >>"$LOG"
+  fi
+  sleep 300
+done
+
+echo "[$(date -Is)] TLS retry timed out. Run: certbot --nginx -d $DOMAIN" >>"$LOG"
+exit 1
+TLSRETRY
+  chmod +x /usr/local/bin/nebula-panel-tls-retry
+
+  cat >/etc/systemd/system/nebula-panel-tls-retry.service <<UNIT
+[Unit]
+Description=Nebula Panel automatic TLS retry
+After=network-online.target nginx.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/nebula-panel-tls-retry $domain $ip
+UNIT
+
+  systemctl daemon-reload
+  systemctl reset-failed nebula-panel-tls-retry.service >/dev/null 2>&1 || true
+  systemctl start nebula-panel-tls-retry.service >/dev/null 2>&1 &
+}
+
 prompt() {
   # prompt VAR "Question" "default"
   local __var="$1" __q="$2" __def="${3:-}"
