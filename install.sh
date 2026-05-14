@@ -291,6 +291,7 @@ EOF
   npm install --silent
   say "Building panel..."
   npm run build
+  write_panel_start_script
 
   if [[ "$SANDBOX" == "1" ]]; then
     say "Sandbox mode — starting panel directly on 0.0.0.0:3535 (no nginx/systemd)..."
@@ -306,7 +307,7 @@ After=network-online.target
 Type=simple
 WorkingDirectory=/opt/nebula-panel
 EnvironmentFile=/opt/nebula-panel/.env
-ExecStart=/usr/bin/node .output/server/index.mjs
+ExecStart=/opt/nebula-panel/start.sh
 Restart=on-failure
 RestartSec=5
 
