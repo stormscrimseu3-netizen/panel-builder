@@ -359,12 +359,14 @@ NGINX
   echo
 
   if [[ "$SANDBOX" == "1" ]]; then
-    warn "Sandbox detected — skipping DNS pause and TLS."
+    warn "$SANDBOX_NAME detected — skipping DNS pause and TLS."
     say "Panel running on port 3535."
     if [[ -n "${CODESPACE_NAME:-}" && -n "${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-}" ]]; then
       say "Codespaces URL: https://${CODESPACE_NAME}-3535.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}"
+    elif [[ -n "${SANDBOX_ID:-}" ]]; then
+      say "CodeSandbox URL: https://${SANDBOX_ID}-3535.csb.app"
     fi
-    say "Open/forward port 3535 in Codespaces, CodeSandbox, or Firebase Studio."
+    say "Open/forward port 3535 in $SANDBOX_NAME."
     say "Logs: tail -f /var/log/nebula-panel.log"
   else
     echo "  → Point your DNS at this IP:"
@@ -375,30 +377,20 @@ NGINX
       warn "Skipping certbot — Cloudflare provides public TLS."
     else
       echo
-      warn "Create the A record above at your DNS provider NOW."
-      warn "Let's Encrypt will fail if $DOMAIN doesn't already resolve to $IP."
-      warn "If you only want HTTP for now, type skip."
-      ask "Press ENTER once DNS is created, or type 'skip' to skip TLS:"
-      read -r DNS_READY || DNS_READY=""
-      if [[ "$DNS_READY" == "skip" ]]; then
-        warn "Skipping TLS. Re-run later: certbot --nginx -d $DOMAIN"
+      say "HTTP is live now: http://$DOMAIN"
+      warn "Create the A record above whenever you are ready. The installer will NOT wait here."
+      RESOLVED=$(dns_ip_for_domain "$DOMAIN")
+      if [[ "$RESOLVED" == "$IP" ]]; then
+        say "DNS already resolves to $IP — requesting TLS now..."
+        certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect || {
+          warn "certbot failed — starting automatic background TLS retry."
+          install_tls_retry_job "$DOMAIN" "$IP"
+        }
       else
-        say "Checking DNS for $DOMAIN..."
-        for i in $(seq 1 24); do
-          RESOLVED=$(dns_ip_for_domain "$DOMAIN")
-          if [[ "$RESOLVED" == "$IP" ]]; then
-            say "DNS resolves to $IP ✓"; break
-          fi
-          warn "Waiting for DNS... attempt $i/24 (current: ${RESOLVED:-none}, expected: $IP). Press Ctrl+C to stop, or type skip next run."
-          [[ $i -eq 24 ]] && warn "DNS still doesn't match — skipping certbot. Re-run later: certbot --nginx -d $DOMAIN"
-          sleep 5
-        done
-        RESOLVED=$(dns_ip_for_domain "$DOMAIN")
-        if [[ "$RESOLVED" == "$IP" ]]; then
-          say "Issuing TLS certificate via Let's Encrypt..."
-          certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect || \
-            warn "certbot failed — re-run after DNS propagates: certbot --nginx -d $DOMAIN"
-        fi
+        warn "DNS is not ready yet (current: ${RESOLVED:-none}, expected: $IP)."
+        say "Starting automatic background TLS retry. It checks every 5 minutes and enables HTTPS once DNS works."
+        install_tls_retry_job "$DOMAIN" "$IP"
+        say "TLS retry logs: tail -f /var/log/nebula-panel-tls-retry.log"
       fi
     fi
   fi
