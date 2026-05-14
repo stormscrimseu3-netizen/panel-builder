@@ -42,16 +42,22 @@ fi
 # Studio / generic Docker). They usually lack systemd, public DNS, and inbound
 # port 80, so we run the panel directly on a forwarded app port instead.
 SANDBOX=0
-if grep -qiE 'codesandbox|gitpod|codespaces' /etc/hostname 2>/dev/null \
-   || [[ -d /workspaces ]] || [[ -d /.codesandbox ]] \
-   || [[ -n "${CODESPACES:-}" ]] || [[ -n "${CODESANDBOX_SSE:-}" ]] || [[ -n "${CSB:-}" ]] \
-   || [[ -n "${GITPOD_WORKSPACE_ID:-}" ]] || [[ -n "${MONOSPACE_ENV:-}" ]] \
-   || [[ -n "${IDX_WORKSPACE_ID:-}" ]] || [[ -n "${FIREBASE_WORKSPACE:-}" ]] \
-   || [[ -f /.dockerenv ]] \
-   || ! pidof systemd >/dev/null 2>&1; then
-  SANDBOX=1
-  warn "Sandbox/container detected — will skip nginx, systemd, ufw, and TLS."
-  warn "Panel will bind to 0.0.0.0:3535 so Codespaces/CodeSandbox/Firebase can forward it."
+SANDBOX_NAME="VPS"
+if [[ -n "${CODESPACES:-}" ]] || grep -qi 'codespaces' /etc/hostname 2>/dev/null || [[ -d /workspaces ]]; then
+  SANDBOX=1; SANDBOX_NAME="GitHub Codespaces"
+elif [[ -n "${CODESANDBOX_SSE:-}" ]] || [[ -n "${CSB:-}" ]] || grep -qi 'codesandbox' /etc/hostname 2>/dev/null || [[ -d /.codesandbox ]]; then
+  SANDBOX=1; SANDBOX_NAME="CodeSandbox"
+elif [[ -n "${MONOSPACE_ENV:-}" ]] || [[ -n "${IDX_WORKSPACE_ID:-}" ]] || [[ -n "${FIREBASE_WORKSPACE:-}" ]]; then
+  SANDBOX=1; SANDBOX_NAME="Firebase Studio"
+elif [[ -n "${GITPOD_WORKSPACE_ID:-}" ]] || grep -qi 'gitpod' /etc/hostname 2>/dev/null; then
+  SANDBOX=1; SANDBOX_NAME="Gitpod"
+elif [[ -f /.dockerenv ]] || ! pidof systemd >/dev/null 2>&1; then
+  SANDBOX=1; SANDBOX_NAME="container/no-systemd environment"
+fi
+
+if [[ "$SANDBOX" == "1" ]]; then
+  warn "$SANDBOX_NAME detected — will skip nginx, systemd, ufw, and TLS."
+  warn "Panel will bind to 0.0.0.0:3535 so your workspace can forward it."
 fi
 
 REPO_GIT="https://github.com/stormscrimseu3-netizen/panel-builder.git"
