@@ -49,13 +49,49 @@ const RUNTIME_IMAGES = {
 // --- server lifecycle ---
 app.post("/servers/:id/start", async (req, res) => {
   const { id } = req.params;
-  const { runtime, startCommand, memoryMb, cpuPercent, image } = req.body;
+  const {
+    runtime,
+    startCommand,
+    memoryMb,
+    cpuPercent,
+    image,
+    name,
+    mainFile,
+    requiredFiles,
+  } = req.body;
   try {
     await fs.mkdir(serverDir(id), { recursive: true });
+
+    // Pre-flight checks: surface a friendly error rather than a docker crash
+    const missingFiles = [];
+    for (const file of requiredFiles ?? []) {
+      try {
+        const stat = await fs.stat(safeJoin(id, file));
+        if (!stat.isFile() || stat.size === 0) missingFiles.push(file);
+      } catch {
+        missingFiles.push(file);
+      }
+    }
+    if (missingFiles.length > 0) {
+      return res.status(400).json({
+        error:
+          `Missing required file(s) for server "${name ?? id}": ${missingFiles.join(", ")}. ` +
+          `Open Files in the panel and create them, then try again.`,
+      });
+    }
+    if (mainFile) {
+      try { await fs.access(safeJoin(id, mainFile)); }
+      catch {
+        return res.status(400).json({
+          error: `Main file "${mainFile}" not found for server "${name ?? id}". Upload it under Files.`,
+        });
+      }
+    }
+
     try { await docker.getContainer(containerName(id)).remove({ force: true }); } catch {}
 
     const useImage = runtime === "docker" ? image : RUNTIME_IMAGES[runtime];
-    if (!useImage) return res.status(400).json({ error: "unknown runtime" });
+    if (!useImage) return res.status(400).json({ error: `Unknown runtime "${runtime}".` });
 
     const container = await docker.createContainer({
       name: containerName(id),

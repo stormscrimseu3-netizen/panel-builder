@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate, Navigate } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
+import { getPublicSignupAllowed } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/signup")({ component: SignupPage });
 
@@ -24,6 +26,12 @@ function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [allowed, setAllowed] = useState<boolean | null>(null);
+  const checkAllowed = useServerFn(getPublicSignupAllowed);
+
+  useEffect(() => {
+    checkAllowed().then((r) => setAllowed(r.allowed)).catch(() => setAllowed(true));
+  }, [checkAllowed]);
 
   if (!loading && user) return <Navigate to="/dashboard" />;
 
@@ -53,23 +61,30 @@ function SignupPage() {
         <div className="card-elevated rounded-2xl p-6">
           <h1 className="text-xl font-semibold">Create your account</h1>
           <p className="mt-1 text-sm text-muted-foreground">Start hosting bots in minutes.</p>
-          <form onSubmit={submit} className="mt-6 space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Display name</Label>
-              <Input id="name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required />
+          {allowed === false ? (
+            <div className="mt-6 rounded-md border border-border bg-muted/30 p-4 text-sm">
+              Public registration is disabled. Ask an admin to create your account, then use the
+              link below to sign in.
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-            </div>
-            <Button type="submit" className="w-full" disabled={busy}>
-              {busy ? "Creating…" : "Create account"}
-            </Button>
-          </form>
+          ) : (
+            <form onSubmit={submit} className="mt-6 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Display name</Label>
+                <Input id="name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              </div>
+              <Button type="submit" className="w-full" disabled={busy || allowed === null}>
+                {busy ? "Creating…" : "Create account"}
+              </Button>
+            </form>
+          )}
           <p className="mt-4 text-center text-sm text-muted-foreground">
             Already have one? <Link to="/login" className="text-primary hover:underline">Sign in</Link>
           </p>

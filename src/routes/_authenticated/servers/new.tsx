@@ -1,9 +1,9 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { toast } from "sonner";
-import { ArrowLeft, Eye, EyeOff, LockKeyhole } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { ArrowLeft, LockKeyhole } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,8 @@ import {
   renderStartup,
   validateEggVariables,
 } from "@/lib/egg-catalog";
+import { createServerForOwner } from "@/lib/servers.functions";
+import { isCurrentUserAdmin } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/_authenticated/servers/new")({
   component: NewServerPage,
@@ -39,27 +41,33 @@ const schema = z.object({
 function NewServerPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const create = useServerFn(createServerForOwner);
+  const checkAdmin = useServerFn(isCurrentUserAdmin);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [eggId, setEggId] = useState("generic/nodejs");
   const [variables, setVariables] = useState<Record<string, string>>(() =>
     defaultEggVariables(getEgg("generic/nodejs")),
   );
-  const [visibleSecrets, setVisibleSecrets] = useState<Record<string, boolean>>({});
   const [memoryMb, setMemoryMb] = useState(512);
   const [cpuPercent, setCpuPercent] = useState(50);
   const [busy, setBusy] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [ownerUsername, setOwnerUsername] = useState("");
   const selectedEgg = useMemo(() => getEgg(eggId), [eggId]);
   const startCommand = useMemo(
     () => renderStartup(selectedEgg.startup, variables),
     [selectedEgg, variables],
   );
 
+  useEffect(() => {
+    checkAdmin().then((r) => setIsAdmin(r.isAdmin)).catch(() => setIsAdmin(false));
+  }, [checkAdmin]);
+
   const selectEgg = (id: string) => {
     const egg = getEgg(id);
     setEggId(egg.id);
     setVariables(defaultEggVariables(egg));
-    setVisibleSecrets({});
   };
 
   const submit = async (e: FormEvent) => {
@@ -75,28 +83,25 @@ function NewServerPage() {
     if (variableError) return toast.error(variableError);
     if (!user) return;
     setBusy(true);
-    const { data, error } = await supabase
-      .from("servers")
-      .insert({
-        ...parsed.data,
-        runtime: selectedEgg.runtime,
-        start_command: startCommand,
-        egg_id: selectedEgg.id,
-        egg_name: selectedEgg.name,
-        egg_image: selectedEgg.image,
-        egg_startup: selectedEgg.startup,
-        egg_variables: variables,
-        egg_secret_variables: selectedEgg.variables
-          .filter((variable) => variable.secret)
-          .map((variable) => variable.env),
-        user_id: user.id,
-      })
-      .select()
-      .single();
-    setBusy(false);
-    if (error) return toast.error(error.message);
-    toast.success("Server created");
-    navigate({ to: "/servers/$serverId", params: { serverId: data.id } });
+    try {
+      const result = await create({
+        data: {
+          name: parsed.data.name,
+          description: parsed.data.description,
+          memory_mb: parsed.data.memory_mb,
+          cpu_percent: parsed.data.cpu_percent,
+          eggId: selectedEgg.id,
+          variables,
+          ownerUsername: isAdmin && ownerUsername.trim() ? ownerUsername.trim() : undefined,
+        },
+      });
+      toast.success("Server created");
+      navigate({ to: "/servers/$serverId", params: { serverId: result.id } });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create server");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -170,7 +175,8 @@ function NewServerPage() {
           <div>
             <h2 className="text-sm font-semibold">Startup variables</h2>
             <p className="text-xs text-muted-foreground">
-              Required, secret, and validation rules match the selected egg.
+              Public variables are saved with the server. Secret values are written to a file
+              instead — your bot reads the token from <span className="mono">&lt;ENV&gt;.txt</span>.
             </p>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
@@ -178,13 +184,6 @@ function NewServerPage() {
               .filter((variable) => variable.user_viewable !== false)
               .map((variable) => {
                 const isSecret = Boolean(variable.secret);
-                const isVisible = visibleSecrets[variable.env];
-                const inputType =
-                  isSecret && !isVisible
-                    ? "password"
-                    : variable.field_type === "number"
-                      ? "number"
-                      : "text";
                 return (
                   <div
                     key={variable.env}
@@ -199,16 +198,32 @@ function NewServerPage() {
                         {isSecret && (
                           <Badge variant="secondary" className="gap-1">
                             <LockKeyhole className="h-3 w-3" />
-                            secret
+                            saved as file
                           </Badge>
                         )}
                       </Label>
-                      <span className="mono text-xs text-muted-foreground">{variable.env}</span>
+                      <span className="mono text-xs text-muted-foreground">
+                        {isSecret ? `${variable.env.toLowerCase()}.txt` : variable.env}
+                      </span>
                     </div>
-                    <div className="flex gap-2">
+                    {isSecret ? (
+                      <Textarea
+                        id={variable.env}
+                        value={variables[variable.env] ?? ""}
+                        rows={3}
+                        placeholder="Paste the token / secret value — it will be saved as a file in this server."
+                        onChange={(e) =>
+                          setVariables((current) => ({
+                            ...current,
+                            [variable.env]: e.target.value,
+                          }))
+                        }
+                        className="mono"
+                      />
+                    ) : (
                       <Input
                         id={variable.env}
-                        type={inputType}
+                        type={variable.field_type === "number" ? "number" : "text"}
                         value={variables[variable.env] ?? ""}
                         disabled={variable.user_editable === false}
                         onChange={(e) =>
@@ -220,23 +235,7 @@ function NewServerPage() {
                         required={variable.rules.includes("required")}
                         className="mono"
                       />
-                      {isSecret && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          onClick={() =>
-                            setVisibleSecrets((current) => ({
-                              ...current,
-                              [variable.env]: !current[variable.env],
-                            }))
-                          }
-                          aria-label={isVisible ? "Hide secret" : "Show secret"}
-                        >
-                          {isVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </Button>
-                      )}
-                    </div>
+                    )}
                     {variable.description && (
                       <p className="text-xs text-muted-foreground">{variable.description}</p>
                     )}
@@ -246,6 +245,21 @@ function NewServerPage() {
               })}
           </div>
         </div>
+
+        {isAdmin && (
+          <div className="space-y-2 rounded-lg border border-border bg-background/30 p-4">
+            <Label htmlFor="owner">Owner username (admin)</Label>
+            <Input
+              id="owner"
+              value={ownerUsername}
+              onChange={(e) => setOwnerUsername(e.target.value)}
+              placeholder="Leave empty to own this server yourself"
+            />
+            <p className="text-xs text-muted-foreground">
+              Type a panel username and the server will be created on their account.
+            </p>
+          </div>
+        )}
 
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="space-y-2">

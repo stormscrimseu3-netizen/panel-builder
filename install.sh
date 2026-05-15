@@ -114,21 +114,16 @@ set -a; [[ -f .env ]] && . ./.env; set +a
 HOST="${HOST:-127.0.0.1}"
 PORT="${PORT:-3535}"
 
-# This TanStack/Vite build can output different server paths depending on the
-# target. Prefer Vite preview for this installer because it always opens an HTTP
-# listener for the built app; keep direct Node entries as a fallback.
+# This project is a TanStack Start app targeted at Cloudflare Workers — there
+# is no Node `server.js` produced by the build. The reliable way to serve it
+# from a regular Linux box (VPS or sandbox) is the Vite dev server, which
+# binds to a real HTTP port and serves the full app (SSR + client).
 if [[ -f node_modules/vite/bin/vite.js ]]; then
-  exec /usr/bin/env npm run preview -- --host "$HOST" --port "$PORT" --strictPort
+  exec /usr/bin/env node node_modules/vite/bin/vite.js --host "$HOST" --port "$PORT" --strictPort
 fi
 
-for entry in dist/server/server.js dist/server/index.js dist/server/index.mjs .output/server/index.mjs .output/server/server.js; do
-  if [[ -f "$entry" ]]; then
-    exec /usr/bin/env node "$entry"
-  fi
-done
-
-echo "Could not find a runnable panel server. Build outputs:" >&2
-find dist .output -maxdepth 3 -type f 2>/dev/null | sed 's/^/  /' >&2 || true
+echo "Vite is not installed in /opt/nebula-panel/node_modules." >&2
+echo "Run: cd /opt/nebula-panel && npm install --include=dev" >&2
 exit 1
 START
   chmod +x /opt/nebula-panel/start.sh
@@ -136,7 +131,7 @@ START
 
 start_panel_process() {
   local host="$(listen_host)"
-  pkill -f '/opt/nebula-panel/start.sh|vite preview|/opt/nebula-panel/.output/server|/opt/nebula-panel/dist/server' 2>/dev/null || true
+  pkill -f '/opt/nebula-panel/start.sh|/opt/nebula-panel/node_modules/vite' 2>/dev/null || true
   HOST="$host" nohup /opt/nebula-panel/start.sh >/var/log/nebula-panel.log 2>&1 &
   echo $! >/var/run/nebula-panel.pid
   for i in $(seq 1 30); do
@@ -291,8 +286,6 @@ EOF
 
   say "Installing dependencies (this takes a minute)..."
   npm install --include=dev --silent
-  say "Building panel..."
-  npm run build
   write_panel_start_script
 
   if [[ "$SANDBOX" == "1" ]]; then
