@@ -175,7 +175,8 @@ function NewServerPage() {
           <div>
             <h2 className="text-sm font-semibold">Startup variables</h2>
             <p className="text-xs text-muted-foreground">
-              Required, secret, and validation rules match the selected egg.
+              Public variables are saved with the server. Secret values are written to a file
+              instead — your bot reads the token from <span className="mono">&lt;ENV&gt;.txt</span>.
             </p>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
@@ -183,13 +184,6 @@ function NewServerPage() {
               .filter((variable) => variable.user_viewable !== false)
               .map((variable) => {
                 const isSecret = Boolean(variable.secret);
-                const isVisible = visibleSecrets[variable.env];
-                const inputType =
-                  isSecret && !isVisible
-                    ? "password"
-                    : variable.field_type === "number"
-                      ? "number"
-                      : "text";
                 return (
                   <div
                     key={variable.env}
@@ -204,16 +198,32 @@ function NewServerPage() {
                         {isSecret && (
                           <Badge variant="secondary" className="gap-1">
                             <LockKeyhole className="h-3 w-3" />
-                            secret
+                            saved as file
                           </Badge>
                         )}
                       </Label>
-                      <span className="mono text-xs text-muted-foreground">{variable.env}</span>
+                      <span className="mono text-xs text-muted-foreground">
+                        {isSecret ? `${variable.env.toLowerCase()}.txt` : variable.env}
+                      </span>
                     </div>
-                    <div className="flex gap-2">
+                    {isSecret ? (
+                      <Textarea
+                        id={variable.env}
+                        value={variables[variable.env] ?? ""}
+                        rows={3}
+                        placeholder="Paste the token / secret value — it will be saved as a file in this server."
+                        onChange={(e) =>
+                          setVariables((current) => ({
+                            ...current,
+                            [variable.env]: e.target.value,
+                          }))
+                        }
+                        className="mono"
+                      />
+                    ) : (
                       <Input
                         id={variable.env}
-                        type={inputType}
+                        type={variable.field_type === "number" ? "number" : "text"}
                         value={variables[variable.env] ?? ""}
                         disabled={variable.user_editable === false}
                         onChange={(e) =>
@@ -225,23 +235,7 @@ function NewServerPage() {
                         required={variable.rules.includes("required")}
                         className="mono"
                       />
-                      {isSecret && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          onClick={() =>
-                            setVisibleSecrets((current) => ({
-                              ...current,
-                              [variable.env]: !current[variable.env],
-                            }))
-                          }
-                          aria-label={isVisible ? "Hide secret" : "Show secret"}
-                        >
-                          {isVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </Button>
-                      )}
-                    </div>
+                    )}
                     {variable.description && (
                       <p className="text-xs text-muted-foreground">{variable.description}</p>
                     )}
@@ -251,6 +245,21 @@ function NewServerPage() {
               })}
           </div>
         </div>
+
+        {isAdmin && (
+          <div className="space-y-2 rounded-lg border border-border bg-background/30 p-4">
+            <Label htmlFor="owner">Owner username (admin)</Label>
+            <Input
+              id="owner"
+              value={ownerUsername}
+              onChange={(e) => setOwnerUsername(e.target.value)}
+              placeholder="Leave empty to own this server yourself"
+            />
+            <p className="text-xs text-muted-foreground">
+              Type a panel username and the server will be created on their account.
+            </p>
+          </div>
+        )}
 
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="space-y-2">
