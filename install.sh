@@ -286,8 +286,6 @@ EOF
 
   say "Installing dependencies (this takes a minute)..."
   npm install --include=dev --silent
-  say "Building panel..."
-  npm run build
   write_panel_start_script
 
   if [[ "$SANDBOX" == "1" ]]; then
