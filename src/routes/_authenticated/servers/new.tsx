@@ -41,27 +41,33 @@ const schema = z.object({
 function NewServerPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const create = useServerFn(createServerForOwner);
+  const checkAdmin = useServerFn(isCurrentUserAdmin);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [eggId, setEggId] = useState("generic/nodejs");
   const [variables, setVariables] = useState<Record<string, string>>(() =>
     defaultEggVariables(getEgg("generic/nodejs")),
   );
-  const [visibleSecrets, setVisibleSecrets] = useState<Record<string, boolean>>({});
   const [memoryMb, setMemoryMb] = useState(512);
   const [cpuPercent, setCpuPercent] = useState(50);
   const [busy, setBusy] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [ownerUsername, setOwnerUsername] = useState("");
   const selectedEgg = useMemo(() => getEgg(eggId), [eggId]);
   const startCommand = useMemo(
     () => renderStartup(selectedEgg.startup, variables),
     [selectedEgg, variables],
   );
 
+  useEffect(() => {
+    checkAdmin().then((r) => setIsAdmin(r.isAdmin)).catch(() => setIsAdmin(false));
+  }, [checkAdmin]);
+
   const selectEgg = (id: string) => {
     const egg = getEgg(id);
     setEggId(egg.id);
     setVariables(defaultEggVariables(egg));
-    setVisibleSecrets({});
   };
 
   const submit = async (e: FormEvent) => {
@@ -77,28 +83,25 @@ function NewServerPage() {
     if (variableError) return toast.error(variableError);
     if (!user) return;
     setBusy(true);
-    const { data, error } = await supabase
-      .from("servers")
-      .insert({
-        ...parsed.data,
-        runtime: selectedEgg.runtime,
-        start_command: startCommand,
-        egg_id: selectedEgg.id,
-        egg_name: selectedEgg.name,
-        egg_image: selectedEgg.image,
-        egg_startup: selectedEgg.startup,
-        egg_variables: variables,
-        egg_secret_variables: selectedEgg.variables
-          .filter((variable) => variable.secret)
-          .map((variable) => variable.env),
-        user_id: user.id,
-      })
-      .select()
-      .single();
-    setBusy(false);
-    if (error) return toast.error(error.message);
-    toast.success("Server created");
-    navigate({ to: "/servers/$serverId", params: { serverId: data.id } });
+    try {
+      const result = await create({
+        data: {
+          name: parsed.data.name,
+          description: parsed.data.description,
+          memory_mb: parsed.data.memory_mb,
+          cpu_percent: parsed.data.cpu_percent,
+          eggId: selectedEgg.id,
+          variables,
+          ownerUsername: isAdmin && ownerUsername.trim() ? ownerUsername.trim() : undefined,
+        },
+      });
+      toast.success("Server created");
+      navigate({ to: "/servers/$serverId", params: { serverId: result.id } });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create server");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
