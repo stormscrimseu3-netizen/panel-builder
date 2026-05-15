@@ -131,7 +131,7 @@ START
 
 start_panel_process() {
   local host="$(listen_host)"
-  pkill -f '/opt/nebula-panel/start.sh|vite preview|/opt/nebula-panel/.output/server|/opt/nebula-panel/dist/server' 2>/dev/null || true
+  pkill -f '/opt/nebula-panel/start.sh|/opt/nebula-panel/node_modules/vite' 2>/dev/null || true
   HOST="$host" nohup /opt/nebula-panel/start.sh >/var/log/nebula-panel.log 2>&1 &
   echo $! >/var/run/nebula-panel.pid
   for i in $(seq 1 30); do
