@@ -13,6 +13,7 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedNodesRouteImport } from './routes/_authenticated/nodes'
 import { Route as AuthenticatedEggsRouteImport } from './routes/_authenticated/eggs'
@@ -41,6 +42,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedUsersRoute = AuthenticatedUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
@@ -99,6 +105,7 @@ export interface FileRoutesByFullPath {
   '/eggs': typeof AuthenticatedEggsRoute
   '/nodes': typeof AuthenticatedNodesRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/users': typeof AuthenticatedUsersRoute
   '/servers/$serverId': typeof AuthenticatedServersServerIdRoute
   '/servers/new': typeof AuthenticatedServersNewRoute
   '/servers/': typeof AuthenticatedServersIndexRoute
@@ -113,6 +120,7 @@ export interface FileRoutesByTo {
   '/eggs': typeof AuthenticatedEggsRoute
   '/nodes': typeof AuthenticatedNodesRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/users': typeof AuthenticatedUsersRoute
   '/servers/$serverId': typeof AuthenticatedServersServerIdRoute
   '/servers/new': typeof AuthenticatedServersNewRoute
   '/servers': typeof AuthenticatedServersIndexRoute
@@ -129,6 +137,7 @@ export interface FileRoutesById {
   '/_authenticated/eggs': typeof AuthenticatedEggsRoute
   '/_authenticated/nodes': typeof AuthenticatedNodesRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/users': typeof AuthenticatedUsersRoute
   '/_authenticated/servers/$serverId': typeof AuthenticatedServersServerIdRoute
   '/_authenticated/servers/new': typeof AuthenticatedServersNewRoute
   '/_authenticated/servers/': typeof AuthenticatedServersIndexRoute
@@ -145,6 +154,7 @@ export interface FileRouteTypes {
     | '/eggs'
     | '/nodes'
     | '/settings'
+    | '/users'
     | '/servers/$serverId'
     | '/servers/new'
     | '/servers/'
@@ -159,6 +169,7 @@ export interface FileRouteTypes {
     | '/eggs'
     | '/nodes'
     | '/settings'
+    | '/users'
     | '/servers/$serverId'
     | '/servers/new'
     | '/servers'
@@ -174,6 +185,7 @@ export interface FileRouteTypes {
     | '/_authenticated/eggs'
     | '/_authenticated/nodes'
     | '/_authenticated/settings'
+    | '/_authenticated/users'
     | '/_authenticated/servers/$serverId'
     | '/_authenticated/servers/new'
     | '/_authenticated/servers/'
@@ -217,6 +229,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/users': {
+      id: '/_authenticated/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof AuthenticatedUsersRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/settings': {
       id: '/_authenticated/settings'
@@ -290,6 +309,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedEggsRoute: typeof AuthenticatedEggsRoute
   AuthenticatedNodesRoute: typeof AuthenticatedNodesRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedUsersRoute: typeof AuthenticatedUsersRoute
   AuthenticatedServersServerIdRoute: typeof AuthenticatedServersServerIdRoute
   AuthenticatedServersNewRoute: typeof AuthenticatedServersNewRoute
   AuthenticatedServersIndexRoute: typeof AuthenticatedServersIndexRoute
@@ -301,6 +321,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedEggsRoute: AuthenticatedEggsRoute,
   AuthenticatedNodesRoute: AuthenticatedNodesRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedUsersRoute: AuthenticatedUsersRoute,
   AuthenticatedServersServerIdRoute: AuthenticatedServersServerIdRoute,
   AuthenticatedServersNewRoute: AuthenticatedServersNewRoute,
   AuthenticatedServersIndexRoute: AuthenticatedServersIndexRoute,
@@ -320,3 +341,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
