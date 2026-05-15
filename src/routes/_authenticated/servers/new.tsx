@@ -1,9 +1,9 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { toast } from "sonner";
-import { ArrowLeft, Eye, EyeOff, LockKeyhole } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { ArrowLeft, LockKeyhole } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,8 @@ import {
   renderStartup,
   validateEggVariables,
 } from "@/lib/egg-catalog";
+import { createServerForOwner } from "@/lib/servers.functions";
+import { isCurrentUserAdmin } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/_authenticated/servers/new")({
   component: NewServerPage,
