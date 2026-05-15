@@ -26,6 +26,12 @@ function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [allowed, setAllowed] = useState<boolean | null>(null);
+  const checkAllowed = useServerFn(getPublicSignupAllowed);
+
+  useEffect(() => {
+    checkAllowed().then((r) => setAllowed(r.allowed)).catch(() => setAllowed(true));
+  }, [checkAllowed]);
 
   if (!loading && user) return <Navigate to="/dashboard" />;
 
